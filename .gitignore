@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.aux
+*.log
+*.out
+*.pdf
+*.fdb_latexmk
+*.fls
+*.synctex.gz
+*~
+*-shape.lua
+.venv/

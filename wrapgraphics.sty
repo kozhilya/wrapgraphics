@@ -1,0 +1,121 @@
+\ProvidesPackage{wrapgraphics}[2024-01-01 v0.1 Wrap text around image alpha contour]
+\RequirePackage{luatexbase}
+\RequirePackage{graphicx}
+\RequirePackage{xkeyval}
+
+\def\wr@threshold{0.5}
+\def\wr@padding{5}
+\def\wr@scale{1}
+
+\define@key{wr}{threshold}{\def\wr@threshold{#1}}
+\define@key{wr}{padding}{\def\wr@padding{#1}}
+\define@key{wr}{scale}{\def\wr@scale{#1}}
+
+\newsavebox{\wr@imagebox}
+
+\newcommand{\wrapgraphics}[2][]{%
+  \setkeys{wr}{#1}%
+  \def\wr@filepath{#2}%
+  \def\wr@shapepath{#2-shape.lua}%
+  %
+  \savebox{\wr@imagebox}{\includegraphics[scale=\wr@scale]{\wr@filepath}}%
+  %
+  \directlua{%
+    local img = "\luaescapestring{\wr@filepath}"
+    local out = "\luaescapestring{\wr@shapepath}"
+    local thr = "\wr@threshold"
+    local pad = "\wr@padding"
+
+    local function find_pyscript()
+      local f = io.open("wrapgraphics.py", "r")
+      if f then f:close(); return "wrapgraphics.py" end
+      local texdir = img:match("^(.*/)")
+      if texdir then
+        local c = texdir .. "wrapgraphics.py"
+        f = io.open(c, "r")
+        if f then f:close(); return c end
+        local p = texdir .. "../wrapgraphics.py"
+        f = io.open(p, "r")
+        if f then f:close(); return p end
+      end
+      local h = io.popen("kpsewhich wrapgraphics.py 2>/dev/null")
+      if h then
+        local r = h:read("*l")
+        h:close()
+        if r and r ~= "" then return r end
+      end
+      return nil
+    end
+    local pyscript = find_pyscript()
+    if not pyscript then
+      tex.print("\\PackageError{wrapgraphics}{Cannot find wrapgraphics.py}{}")
+      return
+    end
+
+    os.execute("python3 " .. pyscript .. " --input " .. img
+             .. " --output " .. out
+             .. " --threshold " .. thr
+             .. " --padding " .. pad)
+
+    local ok, shape = pcall(dofile, out)
+    if not ok then
+      tex.print("\\PackageError{wrapgraphics}{Failed to load shape file}{}")
+      return
+    end
+    if #shape.contour == 0 then
+      tex.print("\\noindent\\usebox{\\wr@imagebox}")
+      return
+    end
+
+    local scale = tonumber("\wr@scale")
+    local sf = scale * 72.0 / shape.dpi
+    local img_h_pt = shape.height * sf
+    local hsize_pt = tex.hsize / 65536
+    local bskip_pt = tex.baselineskip.width / 65536
+    if bskip_pt <= 0 then bskip_pt = 12 end
+
+    local num_lines = math.ceil(img_h_pt / bskip_pt) + 2
+
+    local function indent_for_line(i)
+      local y_top = i * bskip_pt
+      local y_bot = (i + 1) * bskip_pt
+      if y_top >= img_h_pt then return 0 end
+      local s_top = math.max(y_top, 0)
+      local s_bot = math.min(y_bot, img_h_pt)
+      local max_x = 0
+      for _, pt in ipairs(shape.contour) do
+        local y_pt = pt[2] * sf
+        if y_pt >= s_top and y_pt <= s_bot then
+          local x_pt = pt[1] * sf
+          if x_pt > max_x then max_x = x_pt end
+        end
+      end
+      if max_x == 0 then
+        local y_mid = (s_top + s_bot) / 2
+        local min_dist = math.huge
+        for _, pt in ipairs(shape.contour) do
+          local y_pt = pt[2] * sf
+          local dist = math.abs(y_pt - y_mid)
+          if dist < min_dist then
+            min_dist = dist
+            max_x = pt[1] * sf
+          end
+        end
+      end
+      return max_x
+    end
+
+    local par_lines = {}
+    for i = 0, num_lines - 1 do
+      local indent = indent_for_line(i)
+      local width = hsize_pt - indent
+      if width < 0 then width = 0 end
+      par_lines[#par_lines + 1] = string.format("%.1fpt %.1fpt", indent, width)
+    end
+
+    tex.print("\\noindent\\rlap{\\smash{\\usebox{\\wr@imagebox}}}"
+           .. "\\parshape " .. #par_lines .. " " .. table.concat(par_lines, " "))
+  }%
+}
+
+\endinput
