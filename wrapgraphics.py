@@ -1,9 +1,9 @@
 """wrapgraphics.py — CLI entry point for contour tracing.
 
 Reads an image, extracts the alpha channel, thresholds it, traces the
-outer contour with Moore-Neighbor boundary following, offsets each contour
-point outward by N pixels (padding), smooths the result, and writes an SVG
-file with the contour + image overlay.
+outer contour with Moore-Neighbor boundary following, simplifies (RDP),
+smooths, offsets outward by N pixels (padding), smooths again, and writes
+an SVG file with the contour + image overlay.
 """
 
 import argparse
@@ -218,16 +218,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Contour offset in pixels (clearance from image edge)",
     )
     parser.add_argument(
-        "--smooth", type=float, default=2.0,
-        help="Gaussian smoothing sigma in pixels applied to the offset contour (default: 2.0)",
+        "--smooth", type=float, default=3.0,
+        help="Gaussian smoothing sigma in pixels applied before and after offset (default: 3.0)",
     )
     parser.add_argument(
         "--simplify", action=argparse.BooleanOptionalAction, default=True,
         help="Apply Ramer-Douglas-Peucker simplification (default: --simplify)",
     )
     parser.add_argument(
-        "--epsilon", type=float, default=1.0,
-        help="RDP simplification tolerance in pixels (default: 1.0)",
+        "--epsilon", type=float, default=3.0,
+        help="RDP simplification tolerance in pixels (default: 3.0)",
     )
     parser.add_argument(
         "--invert", action="store_true", default=False,
@@ -277,11 +277,14 @@ def main(argv: list[str] | None = None) -> int:
     contour = trace_contour(mask, simplify=args.simplify, epsilon=args.epsilon)
     vprint(f"contour traced: {len(contour)} points (simplify={args.simplify}, epsilon={args.epsilon})")
 
+    contour = smooth_contour(contour, args.smooth * 1.5)
+    vprint(f"pre-offset smoothed (sigma={args.smooth * 1.5:.1f}) -> {len(contour)} points")
+
     contour = offset_contour(contour, args.padding)
     vprint(f"offset by {args.padding} px -> {len(contour)} points")
 
-    contour = smooth_contour(contour, args.smooth)
-    vprint(f"smoothed (sigma={args.smooth}) -> {len(contour)} points")
+    contour = smooth_contour(contour, args.smooth * 0.5)
+    vprint(f"post-offset smoothed (sigma={args.smooth * 0.5:.1f}) -> {len(contour)} points")
 
     write_svg(
         contour, args.output, args.input, w, h, dpi,
