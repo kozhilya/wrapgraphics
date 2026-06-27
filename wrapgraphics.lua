@@ -145,7 +145,7 @@ function wrapgraphics_run()
 
   local sf
   if scale then
-    sf = scale * 72.0 / shape.dpi
+    sf = scale * 72.27 / shape.dpi
   else
     local explicit_width_pt = tonumber(width_override:match("([0-9.]+)"))
     sf = explicit_width_pt / shape.width
