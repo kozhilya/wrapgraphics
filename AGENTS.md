@@ -43,6 +43,10 @@ python3 -m pytest tests/
 lualatex --shell-escape demo.tex
 ```
 
+## Workflow
+
+- **Commit after every iteration of changes** — each logical batch of edits (fix, feature, refactor) must be committed before starting the next one. Use descriptive commit messages in Russian or English matching the project style.
+
 ## Important details
 
 - Contour is traced on the **dilated** alpha threshold mask (padding argument), so the text keeps `N` px clearance from the image boundary

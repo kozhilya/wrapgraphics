@@ -75,10 +75,15 @@ function wrapgraphics_run()
     return
   end
 
-  os.execute("python3 " .. pyscript .. " --input " .. img
-           .. " --output " .. out
-           .. " --threshold " .. thr
-           .. " --padding " .. pad)
+  local f = io.open(out, "r")
+  if not f then
+    os.execute("python3 " .. pyscript .. " --input " .. img
+             .. " --output " .. out
+             .. " --threshold " .. thr
+             .. " --padding " .. pad)
+  else
+    f:close()
+  end
 
   local function parse_svg(path)
     local f = io.open(path, "r")
@@ -242,8 +247,9 @@ function wrapgraphics_run()
     return x_val - gg_min_x
   end
 
+  local par_n = 1
   local max_indent = 0
-  local par_lines_flat = {}
+  local par_lines_flat = {0, hsize_pt}
   for i = 0, num_lines - 1 do
     local boundary = indent_for_line(i)
     if boundary > max_indent then max_indent = boundary end
@@ -261,6 +267,7 @@ function wrapgraphics_run()
     if indent < 0 then indent = 0 end
     par_lines_flat[#par_lines_flat + 1] = indent
     par_lines_flat[#par_lines_flat + 1] = width
+    par_n = par_n + 1
   end
 
   local fmt4 = string.char(37) .. ".4f"
@@ -270,7 +277,7 @@ function wrapgraphics_run()
   if position == "right" then
     imbox = "\\rlap{\\smash{\\hbox to \\the\\hsize{\\hfill\\usebox{\\csname wr@imagebox\\endcsname}\\kern -" .. string.format(fmt4, rpad) .. "pt }}}"
   else
-    imbox = "\\rlap{\\hskip -" .. string.format(fmt4, first_indent) .. "pt \\hskip -" .. string.format(fmt4, gg_min_x) .. "pt \\smash{\\usebox{\\csname wr@imagebox\\endcsname}}}"
+    imbox = "\\rlap{\\hskip -" .. string.format(fmt4, gg_min_x) .. "pt \\smash{\\usebox{\\csname wr@imagebox\\endcsname}}}"
   end
 
   if tex.wr_contour == "true" then
@@ -294,32 +301,31 @@ function wrapgraphics_run()
         .. "\\kern -" .. string.format(fmt4, rpad) .. "pt }}"
     else
       imbox = imbox
-        .. "\\rlap{\\hskip -" .. string.format(fmt4, first_indent)
-        .. "pt \\hskip -" .. string.format(fmt4, gg_min_x)
+        .. "\\rlap{\\hskip -" .. string.format(fmt4, gg_min_x)
         .. "pt \\special{pdf: literal direct {q " .. pdf_path .. " Q}}}"
     end
   end
 
-  local parshape_str = "\\parshape " .. num_lines .. " "
+  local parshape_str = "\\parshape " .. par_n .. " "
   local line_parts = {}
-  for i = 1, num_lines do
+  for i = 1, par_n do
     local idx = (i - 1) * 2 + 1
     line_parts[#line_parts + 1] = string.format("%.1f", par_lines_flat[idx]) .. "pt " .. string.format("%.1f", par_lines_flat[idx + 1]) .. "pt"
   end
-  local parshape_str = "\\parshape " .. num_lines .. " " .. table.concat(line_parts, " ")
+  local parshape_str = "\\parshape " .. par_n .. " " .. table.concat(line_parts, " ")
 
   dbg("gg_min_x=" .. string.format("%.4f", gg_min_x) .. " gg_max_x=" .. string.format("%.4f", gg_max_x)
     .. " px:" .. gg_min_x_px .. ".." .. gg_max_x_px)
   dbg("first_contour_y=" .. string.format("%.4f", first_contour_y) .. " img_w=" .. string.format("%.2f", img_w_pt)
     .. " img_h=" .. string.format("%.2f", img_h_pt) .. " hsize=" .. string.format("%.2f", hsize_pt))
-  dbg("bskip=" .. string.format("%.2f", bskip_pt) .. " num_lines=" .. num_lines
+  dbg("bskip=" .. string.format("%.2f", bskip_pt) .. " num_lines=" .. par_n
     .. " first_indent=" .. string.format("%.4f", first_indent))
   dbg("imbox=" .. imbox)
   dbg("parshape=" .. parshape_str)
 
   wr_remaining = {
     lines = par_lines_flat,
-    total = num_lines,
+    total = par_n,
     used = 0,
   }
 
