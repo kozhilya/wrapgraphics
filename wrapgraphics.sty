@@ -12,6 +12,8 @@
 \def\wr@lines{}
 \def\wr@verbose{false}
 \DeclareOptionX{verbose}{\def\wr@verbose{true}}
+\def\wr@contour{false}
+\DeclareOptionX{contour}{\def\wr@contour{true}}
 \ProcessOptionsX\relax
 
 \define@key{wr}{threshold}{\def\wr@threshold{#1}}
@@ -43,6 +45,7 @@
     tex.wr_hang = "\wr@hang"
     tex.wr_lines = "\wr@lines"
     tex.wr_verbose = "\wr@verbose"
+    tex.wr_contour = "\wr@contour"
     wrapgraphics_run()
   }%
 }

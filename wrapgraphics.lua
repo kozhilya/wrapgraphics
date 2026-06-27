@@ -265,12 +265,39 @@ function wrapgraphics_run()
 
   local fmt4 = string.char(37) .. ".4f"
   local first_indent = indent_for_line(0)
+  local rpad = img_w_pt - gg_max_x
   local imbox
   if position == "right" then
-    local rpad = img_w_pt - gg_max_x
     imbox = "\\rlap{\\smash{\\hbox to \\the\\hsize{\\hfill\\usebox{\\csname wr@imagebox\\endcsname}\\kern -" .. string.format(fmt4, rpad) .. "pt }}}"
   else
     imbox = "\\rlap{\\hskip -" .. string.format(fmt4, first_indent) .. "pt \\hskip -" .. string.format(fmt4, gg_min_x) .. "pt \\smash{\\usebox{\\csname wr@imagebox\\endcsname}}}"
+  end
+
+  if tex.wr_contour == "true" then
+    local pdf_cmds = {}
+    for i, pt in ipairs(shape.contour) do
+      local x = pt[1] * sf
+      local y = img_h_pt - pt[2] * sf
+      if i == 1 then
+        pdf_cmds[#pdf_cmds + 1] = string.format("%.1f %.1f m", x, y)
+      else
+        pdf_cmds[#pdf_cmds + 1] = string.format("%.1f %.1f l", x, y)
+      end
+    end
+    pdf_cmds[#pdf_cmds + 1] = "h S"
+    local pdf_path = "0.5 w 0 1 0 RG " .. table.concat(pdf_cmds, " ")
+    local cin = string.char(37) .. ".1f"
+    if position == "right" then
+      imbox = imbox
+        .. "\\rlap{\\hbox to \\the\\hsize{\\hfill"
+        .. "\\special{pdf: literal direct {q 1 0 0 1 -" .. string.format(cin, img_w_pt) .. " 0 cm " .. pdf_path .. " Q}}"
+        .. "\\kern -" .. string.format(fmt4, rpad) .. "pt }}"
+    else
+      imbox = imbox
+        .. "\\rlap{\\hskip -" .. string.format(fmt4, first_indent)
+        .. "pt \\hskip -" .. string.format(fmt4, gg_min_x)
+        .. "pt \\special{pdf: literal direct {q " .. pdf_path .. " Q}}}"
+    end
   end
 
   local parshape_str = "\\parshape " .. num_lines .. " "

@@ -2,7 +2,7 @@
 % !TEX options = --shell-escape
 \documentclass{article}
 \usepackage[utf8]{inputenc}
-\usepackage[verbose]{wrapgraphics}
+\usepackage[verbose,contour]{wrapgraphics}
 \usepackage{lipsum}
 \usepackage{geometry}
 
@@ -13,10 +13,9 @@
 \section*{wrapgraphics demo}
 
 \wrapgraphics[threshold=0.5, padding=5, scale=0.20]{tree.png}
-\lipsum[1-10]
+\lipsum[1-6]
 
-\wrapgraphics[threshold=0.5, padding=5, scale=0.16]{tree.png}
-Here... \par
-\lipsum[11-20]
+\wrapgraphics[threshold=0.5, padding=5, scale=0.16, position=right]{tree.png}
+\lipsum[7-20]
 
 \end{document}
