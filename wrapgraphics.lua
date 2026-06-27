@@ -75,10 +75,29 @@ function wrapgraphics_run()
     return
   end
 
-  os.execute("python3 " .. pyscript .. " --input " .. img
-           .. " --output " .. out
-           .. " --threshold " .. thr
-           .. " --padding " .. pad)
+  local function svg_matches_params(path)
+    local f = io.open(path, "r")
+    if not f then return false end
+    local content = f:read("*a")
+    f:close()
+    local thr_attr = content:match('wg%-threshold="([^"]+)"')
+    local pad_attr = content:match('wg%-padding="([^"]+)"')
+    return thr_attr == thr and pad_attr == pad
+  end
+
+  local function run_python()
+    texio.write("term and log", "[wrapgraphics] running python3 (padding=" .. pad .. ")... ")
+    os.execute("python3 " .. pyscript .. " --input " .. img
+             .. " --output " .. out
+             .. " --threshold " .. thr
+             .. " --padding " .. pad)
+  end
+
+  if svg_matches_params(out) then
+    dbg("cached SVG matches params, skipping Python")
+  else
+    run_python()
+  end
 
   local function parse_svg(path)
     local f = io.open(path, "r")
