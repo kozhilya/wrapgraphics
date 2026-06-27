@@ -2,8 +2,9 @@
 
 Reads an image, extracts the alpha channel, thresholds it, traces the
 outer contour with Moore-Neighbor boundary following, simplifies (RDP),
-smooths, offsets outward by N pixels (padding), smooths again, and writes
-an SVG file with the contour + image overlay.
+smooths, offsets outward by N pixels (padding), rasterises the offset
+contour as a filled polygon and re-traces the outer boundary (removes
+self-intersections / swirls), then writes an SVG file.
 """
 
 import argparse
@@ -72,6 +73,21 @@ def smooth_contour(points: list[Point], sigma: float) -> list[Point]:
             sy += points[idx][1] * kw
         result.append((sx, sy))
     return result
+
+
+def fill_contour(
+    points: list[Point],
+    img_width: int, img_height: int,
+    simplify: bool = True, epsilon: float = 1.0,
+) -> list[Point]:
+    """Rasterise a closed polygon, trace its outer boundary."""
+    from PIL import ImageDraw
+    mask = Image.new("L", (img_width, img_height), 0)
+    int_pts = [(int(round(x)), int(round(y))) for x, y in points]
+    if len(int_pts) < 3:
+        return points
+    ImageDraw.Draw(mask).polygon(int_pts, fill=255)
+    return trace_contour(mask, simplify=simplify, epsilon=epsilon)
 
 
 def trace_contour(
@@ -282,6 +298,9 @@ def main(argv: list[str] | None = None) -> int:
 
     contour = offset_contour(contour, args.padding)
     vprint(f"offset by {args.padding} px -> {len(contour)} points")
+
+    contour = fill_contour(contour, w, h, simplify=True, epsilon=args.epsilon)
+    vprint(f"fill+retrace -> {len(contour)} points")
 
     contour = smooth_contour(contour, args.smooth * 0.5)
     vprint(f"post-offset smoothed (sigma={args.smooth * 0.5:.1f}) -> {len(contour)} points")
