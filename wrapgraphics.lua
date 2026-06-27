@@ -9,7 +9,7 @@ local function post_linebreak_filter(head, is_display)
     nlines = nlines + 1
   end
   st.used = st.used + nlines
-  if st.used >= st.total then
+  if st.used >= st.total or st.used * st.bskip >= st.img_h then
     wr_remaining = nil
   end
   return head
@@ -18,6 +18,10 @@ end
 function wr_setup_parshape()
   if not wr_remaining then return end
   local st = wr_remaining
+  if st.used * st.bskip >= st.img_h then
+    wr_remaining = nil
+    return
+  end
   local n = st.total - st.used
   if n <= 0 then
     wr_remaining = nil
@@ -336,6 +340,8 @@ function wrapgraphics_run()
     lines = par_lines_flat,
     total = par_n,
     used = 0,
+    bskip = bskip_pt,
+    img_h = img_h_pt,
   }
 
   if not post_cb_installed then
