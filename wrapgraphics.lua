@@ -30,8 +30,15 @@ function wr_setup_parshape()
   local parts = {}
   for i = 1, n do
     local idx = (st.used + i - 1) * 2 + 1
-    parts[#parts + 1] = st.lines[idx]
-    parts[#parts + 1] = st.lines[idx + 1]
+    local indent = st.lines[idx]
+    local width = st.lines[idx + 1]
+    if i == 1 and st.pos == "right" and indent == 0 and width > 0 then
+      indent = indent + st.parindent
+      width = width - st.parindent
+      if width < 0 then width = 0 end
+    end
+    parts[#parts + 1] = indent
+    parts[#parts + 1] = width
   end
   local str = "\\parshape " .. n .. " "
   for _, v in ipairs(parts) do
@@ -271,6 +278,11 @@ function wrapgraphics_run()
       if hang_mode then boundary = max_indent end
       indent = 0
       width = boundary
+      if i == 0 and boundary > 0 then
+        indent = indent + tex.parindent / 65536
+        width = width - tex.parindent / 65536
+        if width < 0 then width = 0 end
+      end
     else
       if hang_mode then boundary = max_indent end
       indent = boundary
@@ -342,6 +354,8 @@ function wrapgraphics_run()
     used = 0,
     bskip = bskip_pt,
     img_h = img_h_pt,
+    pos = position,
+    parindent = tex.parindent / 65536,
   }
 
   if not post_cb_installed then
