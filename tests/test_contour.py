@@ -5,7 +5,7 @@ import tempfile
 import numpy as np
 from PIL import Image, ImageDraw
 
-from wrapgraphics import load_alpha, threshold, dilate, trace_contour, write_svg
+from wrapgraphics import load_alpha, threshold, trace_contour, offset_contour, write_svg
 
 
 def _make_circle_image(size=32) -> Image.Image:
@@ -38,14 +38,18 @@ def test_threshold():
     assert mask.getpixel((0, 0)) == 0
 
 
-def test_dilate():
-    img = _make_circle_image()
-    alpha = img.split()[-1]
-    mask = threshold(alpha, 0.5)
-    original_white = sum(1 for y in range(32) for x in range(32) if mask.getpixel((x, y)) > 127)  # type: ignore[operator]
-    dilated = dilate(mask, 3)
-    dilated_white = sum(1 for y in range(32) for x in range(32) if dilated.getpixel((x, y)) > 127)  # type: ignore[operator]
-    assert dilated_white > original_white
+def test_offset_contour():
+    pts = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)]
+    offset = offset_contour(pts, 5)
+    assert len(offset) == len(pts)
+    # Original square: x in [0,10], y in [0,10]. Offset by 5 outward should
+    # expand the bounding box by ~5px on each side (more at corners).
+    xs = [p[0] for p in offset]
+    ys = [p[1] for p in offset]
+    assert min(xs) < -1, f"Expected offset to expand left, got min_x={min(xs)}"
+    assert max(xs) > 11, f"Expected offset to expand right, got max_x={max(xs)}"
+    assert min(ys) < -1, f"Expected offset to expand up, got min_y={min(ys)}"
+    assert max(ys) > 11, f"Expected offset to expand down, got max_y={max(ys)}"
 
 
 def test_trace_contour():
@@ -90,6 +94,7 @@ def test_write_svg(tmp_path):
     assert 'width="100"' in text
     assert 'height="200"' in text
     assert 'wg-dpi="72.0"' in text
+    assert 'wg-smooth="2.0"' in text
     assert "<image" in text
     assert "<path" in text
     assert 'd="M 10.0 20.0 L 30.0 40.0 L 50.0 60.0 Z"' in text

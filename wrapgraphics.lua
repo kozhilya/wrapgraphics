@@ -49,6 +49,7 @@ function wrapgraphics_run()
   local out = img .. "-shape.svg"
   local thr = tex.wr_threshold
   local pad = tex.wr_padding
+  local smo = tex.wr_smooth
 
   local function find_pyscript()
     local f = io.open("wrapgraphics.py", "r")
@@ -83,15 +84,17 @@ function wrapgraphics_run()
     f:close()
     local thr_attr = content:match('wg%-threshold="([^"]+)"')
     local pad_attr = content:match('wg%-padding="([^"]+)"')
-    return thr_attr == thr and pad_attr == pad
+    local smo_attr = content:match('wg%-smooth="([^"]+)"')
+    return thr_attr == thr and pad_attr == pad and (smo_attr == nil or smo_attr == smo)
   end
 
   local function run_python()
-    texio.write("term and log", "[wrapgraphics] running python3 (padding=" .. pad .. ")... ")
+    texio.write("term and log", "[wrapgraphics] running python3 (padding=" .. pad .. ", smooth=" .. smo .. ")... ")
     os.execute("python3 " .. pyscript .. " --input " .. img
              .. " --output " .. out
              .. " --threshold " .. thr
-             .. " --padding " .. pad)
+             .. " --padding " .. pad
+             .. " --smooth " .. smo)
   end
 
   if svg_matches_params(out) then
@@ -145,7 +148,7 @@ function wrapgraphics_run()
 
   dbg("image=" .. img .. " " .. shape.width .. "x" .. shape.height .. " dpi=" .. shape.dpi)
   dbg("contour: " .. #shape.contour .. " points, invert=" .. tostring(shape.invert))
-  dbg("params: threshold=" .. thr .. " padding=" .. pad .. " scale=" .. tex.wr_scale .. " position=" .. position)
+  dbg("params: threshold=" .. thr .. " padding=" .. pad .. " smooth=" .. smo .. " scale=" .. tex.wr_scale .. " position=" .. position)
 
   if next(shape.contour) == nil then
     dbg("empty contour -- no wrapping")

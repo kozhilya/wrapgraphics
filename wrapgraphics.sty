@@ -5,6 +5,7 @@
 
 \def\wr@threshold{0.5}
 \def\wr@padding{5}
+\def\wr@smooth{2.0}
 \def\wr@scale{1}
 \def\wr@position{left}
 \def\wr@width{}
@@ -18,6 +19,7 @@
 
 \define@key{wr}{threshold}{\def\wr@threshold{#1}}
 \define@key{wr}{padding}{\def\wr@padding{#1}}
+\define@key{wr}{smooth}{\def\wr@smooth{#1}}
 \define@key{wr}{scale}{\def\wr@scale{#1}}
 \define@key{wr}{position}{\def\wr@position{#1}}
 \define@key{wr}{width}{\def\wr@width{#1}}
@@ -39,6 +41,7 @@
     tex.wr_filepath = "\luaescapestring{\wr@filepath}"
     tex.wr_threshold = "\wr@threshold"
     tex.wr_padding = "\wr@padding"
+    tex.wr_smooth = "\wr@smooth"
     tex.wr_scale = "\wr@scale"
     tex.wr_position = "\wr@position"
     tex.wr_width = "\wr@width"

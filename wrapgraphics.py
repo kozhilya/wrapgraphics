@@ -1,8 +1,9 @@
 """wrapgraphics.py — CLI entry point for contour tracing.
 
-Reads an image, extracts the alpha channel, thresholds it, dilates by N
-pixels (padding), traces the outer contour with Moore-Neighbor boundary
-following, and writes an SVG file with the contour + image overlay.
+Reads an image, extracts the alpha channel, thresholds it, traces the
+outer contour with Moore-Neighbor boundary following, offsets each contour
+point outward by N pixels (padding), smooths the result, and writes an SVG
+file with the contour + image overlay.
 """
 
 import argparse
@@ -11,7 +12,7 @@ import os
 import sys
 import traceback
 
-from PIL import Image, ImageFilter, UnidentifiedImageError
+from PIL import Image, UnidentifiedImageError
 
 Point = tuple[float, float]
 
@@ -26,11 +27,51 @@ def threshold(alpha: Image.Image, level: float) -> Image.Image:
     return alpha.point(lambda p: 255 if p >= threshold_val else 0)  # type: ignore[return-value]
 
 
-def dilate(mask: Image.Image, padding: int) -> Image.Image:
-    if padding <= 0:
-        return mask
-    kernel_size = padding * 2 + 1
-    return mask.filter(ImageFilter.MaxFilter(kernel_size))
+def offset_contour(points: list[Point], padding: int) -> list[Point]:
+    """Offset each contour point outward by padding pixels along the normal."""
+    if padding <= 0 or len(points) < 3:
+        return points
+    n = len(points)
+    signed_area = 0.0
+    for i in range(n):
+        x1, y1 = points[i]
+        x2, y2 = points[(i + 1) % n]
+        signed_area += x1 * y2 - x2 * y1
+    sign = 1.0 if signed_area > 0.0 else -1.0
+    result = []
+    for i in range(n):
+        p0 = points[(i - 1) % n]
+        p1 = points[i]
+        p2 = points[(i + 1) % n]
+        tx = p2[0] - p0[0]
+        ty = p2[1] - p0[1]
+        length = math.hypot(tx, ty)
+        if length == 0:
+            result.append(p1)
+            continue
+        result.append((p1[0] + sign * ty / length * padding, p1[1] - sign * tx / length * padding))
+    return result
+
+
+def smooth_contour(points: list[Point], sigma: float) -> list[Point]:
+    """Apply Gaussian smoothing to a closed contour (sigma in pixels)."""
+    if sigma <= 0 or len(points) < 3:
+        return points
+    radius = max(1, round(sigma * 2))
+    kernel_size = radius * 2 + 1
+    kernel = [math.exp(-((i - radius) ** 2) / (2 * sigma * sigma)) for i in range(kernel_size)]
+    ksum = sum(kernel)
+    kernel = [w / ksum for w in kernel]
+    n = len(points)
+    result = []
+    for i in range(n):
+        sx, sy = 0.0, 0.0
+        for j, kw in enumerate(kernel):
+            idx = (i + j - radius) % n
+            sx += points[idx][0] * kw
+            sy += points[idx][1] * kw
+        result.append((sx, sy))
+    return result
 
 
 def trace_contour(
@@ -134,6 +175,7 @@ def write_svg(
     dpi: float,
     threshold: float = 0.5,
     padding: int = 5,
+    smooth: float = 2.0,
     invert: bool = False,
 ) -> None:
     img_rel = os.path.basename(img_path)
@@ -146,6 +188,7 @@ def write_svg(
             f'     wg-dpi="{dpi:.1f}"'
             f' wg-threshold="{threshold}"'
             f' wg-padding="{padding}"'
+            f' wg-smooth="{smooth}"'
             f' wg-invert="{"1" if invert else "0"}">\n'
         )
         f.write(
@@ -172,7 +215,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--padding", "-p", type=int, default=5,
-        help="Dilation padding in pixels (clearance from image edge)",
+        help="Contour offset in pixels (clearance from image edge)",
+    )
+    parser.add_argument(
+        "--smooth", type=float, default=2.0,
+        help="Gaussian smoothing sigma in pixels applied to the offset contour (default: 2.0)",
     )
     parser.add_argument(
         "--simplify", action=argparse.BooleanOptionalAction, default=True,
@@ -227,16 +274,19 @@ def main(argv: list[str] | None = None) -> int:
     mask = threshold(alpha, args.threshold)
     vprint(f"threshold={args.threshold} applied")
 
-    mask = dilate(mask, args.padding)
-    vprint(f"dilated by {args.padding} px")
-
     contour = trace_contour(mask, simplify=args.simplify, epsilon=args.epsilon)
     vprint(f"contour traced: {len(contour)} points (simplify={args.simplify}, epsilon={args.epsilon})")
+
+    contour = offset_contour(contour, args.padding)
+    vprint(f"offset by {args.padding} px -> {len(contour)} points")
+
+    contour = smooth_contour(contour, args.smooth)
+    vprint(f"smoothed (sigma={args.smooth}) -> {len(contour)} points")
 
     write_svg(
         contour, args.output, args.input, w, h, dpi,
         threshold=args.threshold, padding=args.padding,
-        invert=args.invert,
+        smooth=args.smooth, invert=args.invert,
     )
     print(f"Wrote {len(contour)} contour points to {args.output}")
     return 0
