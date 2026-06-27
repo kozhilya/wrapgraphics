@@ -1,21 +1,9 @@
-% !TEX program = lualatex
-% !TEX options = --shell-escape
 \documentclass{article}
-\usepackage[utf8]{inputenc}
 \usepackage[verbose,contour]{wrapgraphics}
 \usepackage{lipsum}
 \usepackage{geometry}
-
 \geometry{a4paper, margin=2.5cm}
-
 \begin{document}
-
-\section*{wrapgraphics demo}
-
 \wrapgraphics[threshold=0.5, padding=70, scale=0.20]{tree.png}
 \lipsum[1-6]
-
-\wrapgraphics[threshold=0.5, padding=70, scale=0.16, position=right]{tree.png}
-\lipsum[7-20]
-
 \end{document}

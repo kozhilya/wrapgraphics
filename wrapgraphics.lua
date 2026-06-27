@@ -75,15 +75,10 @@ function wrapgraphics_run()
     return
   end
 
-  local f = io.open(out, "r")
-  if not f then
-    os.execute("python3 " .. pyscript .. " --input " .. img
-             .. " --output " .. out
-             .. " --threshold " .. thr
-             .. " --padding " .. pad)
-  else
-    f:close()
-  end
+  os.execute("python3 " .. pyscript .. " --input " .. img
+           .. " --output " .. out
+           .. " --threshold " .. thr
+           .. " --padding " .. pad)
 
   local function parse_svg(path)
     local f = io.open(path, "r")
