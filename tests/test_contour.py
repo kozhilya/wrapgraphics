@@ -5,7 +5,9 @@ import tempfile
 import numpy as np
 from PIL import Image, ImageDraw
 
-from wrapgraphics import load_alpha, threshold, trace_contour, offset_contour, write_svg
+from wrapgraphics import load_alpha, threshold, dilate_fast, trace_contour, write_svg
+
+import numpy as np
 
 
 def _make_circle_image(size=32) -> Image.Image:
@@ -38,18 +40,17 @@ def test_threshold():
     assert mask.getpixel((0, 0)) == 0
 
 
-def test_offset_contour():
-    pts = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)]
-    offset = offset_contour(pts, 5)
-    assert len(offset) == len(pts)
-    # Original square: x in [0,10], y in [0,10]. Offset by 5 outward should
-    # expand the bounding box by ~5px on each side (more at corners).
-    xs = [p[0] for p in offset]
-    ys = [p[1] for p in offset]
-    assert min(xs) < -1, f"Expected offset to expand left, got min_x={min(xs)}"
-    assert max(xs) > 11, f"Expected offset to expand right, got max_x={max(xs)}"
-    assert min(ys) < -1, f"Expected offset to expand up, got min_y={min(ys)}"
-    assert max(ys) > 11, f"Expected offset to expand down, got max_y={max(ys)}"
+def test_dilate_fast():
+    """Binary dilation by N px should expand the opaque area."""
+    img = _make_circle_image()
+    alpha = img.split()[-1]
+    mask = threshold(alpha, 0.5)
+    white_before = np.sum(np.array(mask) > 127)
+    dilated = dilate_fast(mask, 3)
+    white_after = np.sum(np.array(dilated) > 127)
+    assert white_after > white_before
+    # Center pixel should remain white
+    assert dilated.getpixel((16, 16)) == 255
 
 
 def test_trace_contour():
@@ -94,7 +95,7 @@ def test_write_svg(tmp_path):
     assert 'width="100"' in text
     assert 'height="200"' in text
     assert 'wg-dpi="72.0"' in text
-    assert 'wg-smooth="2.0"' in text
+    assert 'wg-smooth="0.0"' in text
     assert "<image" in text
     assert "<path" in text
     assert 'd="M 10.0 20.0 L 30.0 40.0 L 50.0 60.0 Z"' in text

@@ -28,34 +28,26 @@ def threshold(alpha: Image.Image, level: float) -> Image.Image:
     return alpha.point(lambda p: 255 if p >= threshold_val else 0)  # type: ignore[return-value]
 
 
-def offset_contour(points: list[Point], padding: int) -> list[Point]:
-    """Offset each contour point outward by padding pixels along the normal."""
-    if padding <= 0 or len(points) < 3:
-        return points
-    n = len(points)
-    signed_area = 0.0
-    for i in range(n):
-        x1, y1 = points[i]
-        x2, y2 = points[(i + 1) % n]
-        signed_area += x1 * y2 - x2 * y1
-    sign = 1.0 if signed_area > 0.0 else -1.0
-    result = []
-    for i in range(n):
-        p0 = points[(i - 1) % n]
-        p1 = points[i]
-        p2 = points[(i + 1) % n]
-        tx = p2[0] - p0[0]
-        ty = p2[1] - p0[1]
-        length = math.hypot(tx, ty)
-        if length == 0:
-            result.append(p1)
-            continue
-        result.append((p1[0] + sign * ty / length * padding, p1[1] - sign * tx / length * padding))
-    return result
+def dilate_fast(mask: Image.Image, padding: int) -> Image.Image:
+    """Binary dilation via integral image (O(n), fast even for large padding)."""
+    if padding <= 0:
+        return mask
+    import numpy as np
+    arr = np.array(mask, dtype=np.uint8)
+    bins = (arr > 127).astype(np.int64)
+    h_img, w_img = bins.shape
+    integral = np.pad(bins.cumsum(axis=0).cumsum(axis=1), (1, 0), mode="constant")[:, :]
+    y_idx = np.arange(h_img)[:, None]
+    x_idx = np.arange(w_img)[None, :]
+    y1 = np.maximum(0, y_idx - padding)
+    y2 = np.minimum(h_img, y_idx + padding + 1)
+    x1 = np.maximum(0, x_idx - padding)
+    x2 = np.minimum(w_img, x_idx + padding + 1)
+    s = integral[y2, x2] - integral[y1, x2] - integral[y2, x1] + integral[y1, x1]
+    return Image.fromarray((s > 0).astype(np.uint8) * 255, mode="L")
 
 
 def smooth_contour(points: list[Point], sigma: float) -> list[Point]:
-    """Apply Gaussian smoothing to a closed contour (sigma in pixels)."""
     if sigma <= 0 or len(points) < 3:
         return points
     radius = max(1, round(sigma * 2))
@@ -73,21 +65,6 @@ def smooth_contour(points: list[Point], sigma: float) -> list[Point]:
             sy += points[idx][1] * kw
         result.append((sx, sy))
     return result
-
-
-def fill_contour(
-    points: list[Point],
-    img_width: int, img_height: int,
-    simplify: bool = True, epsilon: float = 1.0,
-) -> list[Point]:
-    """Rasterise a closed polygon, trace its outer boundary."""
-    from PIL import ImageDraw
-    mask = Image.new("L", (img_width, img_height), 0)
-    int_pts = [(int(round(x)), int(round(y))) for x, y in points]
-    if len(int_pts) < 3:
-        return points
-    ImageDraw.Draw(mask).polygon(int_pts, fill=255)
-    return trace_contour(mask, simplify=simplify, epsilon=epsilon)
 
 
 def trace_contour(
@@ -191,7 +168,7 @@ def write_svg(
     dpi: float,
     threshold: float = 0.5,
     padding: int = 5,
-    smooth: float = 2.0,
+    smooth: float = 0.0,
     invert: bool = False,
 ) -> None:
     img_rel = os.path.basename(img_path)
@@ -234,8 +211,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Contour offset in pixels (clearance from image edge)",
     )
     parser.add_argument(
-        "--smooth", type=float, default=3.0,
-        help="Gaussian smoothing sigma in pixels applied before and after offset (default: 3.0)",
+        "--smooth", type=float, default=0.0,
+        help="Gaussian smoothing sigma in pixels applied after dilation trace (default: 0 = off)",
     )
     parser.add_argument(
         "--simplify", action=argparse.BooleanOptionalAction, default=True,
@@ -290,20 +267,15 @@ def main(argv: list[str] | None = None) -> int:
     mask = threshold(alpha, args.threshold)
     vprint(f"threshold={args.threshold} applied")
 
+    mask = dilate_fast(mask, args.padding)
+    vprint(f"dilated by {args.padding} px (integral-image)")
+
     contour = trace_contour(mask, simplify=args.simplify, epsilon=args.epsilon)
     vprint(f"contour traced: {len(contour)} points (simplify={args.simplify}, epsilon={args.epsilon})")
 
-    contour = smooth_contour(contour, args.smooth * 1.5)
-    vprint(f"pre-offset smoothed (sigma={args.smooth * 1.5:.1f}) -> {len(contour)} points")
-
-    contour = offset_contour(contour, args.padding)
-    vprint(f"offset by {args.padding} px -> {len(contour)} points")
-
-    contour = fill_contour(contour, w, h, simplify=True, epsilon=args.epsilon)
-    vprint(f"fill+retrace -> {len(contour)} points")
-
-    contour = smooth_contour(contour, args.smooth * 0.5)
-    vprint(f"post-offset smoothed (sigma={args.smooth * 0.5:.1f}) -> {len(contour)} points")
+    if args.smooth > 0:
+        contour = smooth_contour(contour, args.smooth)
+        vprint(f"smoothed (sigma={args.smooth}) -> {len(contour)} points")
 
     write_svg(
         contour, args.output, args.input, w, h, dpi,
