@@ -8,5 +8,5 @@ __pycache__/
 *.fls
 *.synctex.gz
 *~
-*-shape.lua
+*-shape.svg
 .venv/

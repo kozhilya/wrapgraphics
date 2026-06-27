@@ -44,6 +44,6 @@ Place `wrapgraphics.sty` and `wrapgraphics.py` in the same directory as your doc
 
 ```sh
 python3 -m pytest tests/
-python3 wrapgraphics.py --input image.png --output image.shape.lua --threshold 0.5 --padding 5
+python3 wrapgraphics.py --input image.png --output image.png-shape.svg --threshold 0.5 --padding 5
 lualatex --shell-escape demo/demo.tex
 ```

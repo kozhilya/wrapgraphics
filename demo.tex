@@ -1,0 +1,22 @@
+% !TEX program = lualatex
+% !TEX options = --shell-escape
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage[verbose]{wrapgraphics}
+\usepackage{lipsum}
+\usepackage{geometry}
+
+\geometry{a4paper, margin=2.5cm}
+
+\begin{document}
+
+\section*{wrapgraphics demo}
+
+\wrapgraphics[threshold=0.5, padding=5, scale=0.20]{tree.png}
+\lipsum[1-10]
+
+\wrapgraphics[threshold=0.5, padding=5, scale=0.16]{tree.png}
+Here... \par
+\lipsum[11-20]
+
+\end{document}
