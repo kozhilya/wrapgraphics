@@ -277,7 +277,7 @@ function wrapgraphics_run()
     local pdf_cmds = {}
     for i, pt in ipairs(shape.contour) do
       local x = pt[1] * sf
-      local y = img_h_pt - pt[2] * sf
+      local y = -(pt[2] * sf)
       if i == 1 then
         pdf_cmds[#pdf_cmds + 1] = string.format("%.1f %.1f m", x, y)
       else
@@ -285,7 +285,7 @@ function wrapgraphics_run()
       end
     end
     pdf_cmds[#pdf_cmds + 1] = "h S"
-    local pdf_path = "0.5 w 0 1 0 RG " .. table.concat(pdf_cmds, " ")
+    local pdf_path = "0.5 w 1 0 0 RG " .. table.concat(pdf_cmds, " ")
     local cin = string.char(37) .. ".1f"
     if position == "right" then
       imbox = imbox
