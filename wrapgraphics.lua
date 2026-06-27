@@ -1,8 +1,20 @@
 local wr_remaining = nil
 local post_cb_installed = false
 
+local function clear_on_page_change()
+  if not wr_remaining then return true end
+  local st = wr_remaining
+  local cur = status and status.page or 0
+  if st.start_page and cur > st.start_page then
+    wr_remaining = nil
+    return true
+  end
+  return false
+end
+
 local function post_linebreak_filter(head, is_display)
   if not wr_remaining then return head end
+  if clear_on_page_change() then return head end
   local st = wr_remaining
   local nlines = 0
   for line in node.traverse_id(node.id("hlist"), head) do
@@ -17,6 +29,7 @@ end
 
 function wr_setup_parshape()
   if not wr_remaining then return end
+  if clear_on_page_change() then return end
   local st = wr_remaining
   if st.used * st.bskip >= st.img_h then
     wr_remaining = nil
@@ -30,15 +43,8 @@ function wr_setup_parshape()
   local parts = {}
   for i = 1, n do
     local idx = (st.used + i - 1) * 2 + 1
-    local indent = st.lines[idx]
-    local width = st.lines[idx + 1]
-    if i == 1 and st.pos == "right" and indent == 0 and width > 0 then
-      indent = indent + st.parindent
-      width = width - st.parindent
-      if width < 0 then width = 0 end
-    end
-    parts[#parts + 1] = indent
-    parts[#parts + 1] = width
+    parts[#parts + 1] = st.lines[idx]
+    parts[#parts + 1] = st.lines[idx + 1]
   end
   local str = "\\parshape " .. n .. " "
   for _, v in ipairs(parts) do
@@ -242,7 +248,11 @@ function wrapgraphics_run()
   local function indent_for_line(i)
     local y_top = i * bskip_pt
     local y_bot = (i + 1) * bskip_pt
-    if y_top >= img_h_pt then return 0 end
+    local out_y = (i + 1) * bskip_pt
+    if out_y >= img_h_pt then
+      if position == "right" then return hsize_pt end
+      return 0
+    end
     if y_bot <= first_contour_y then return 0 end
     local s_top = math.max(y_top, first_contour_y)
     local s_bot = math.min(y_bot, img_h_pt)
@@ -269,7 +279,8 @@ function wrapgraphics_run()
 
   local par_n = 1
   local max_indent = 0
-  local par_lines_flat = {0, hsize_pt}
+  local pi = tex.parindent / 65536
+  local par_lines_flat = {pi, hsize_pt - pi}
   for i = 0, num_lines - 1 do
     local boundary = indent_for_line(i)
     if boundary > max_indent then max_indent = boundary end
@@ -278,11 +289,6 @@ function wrapgraphics_run()
       if hang_mode then boundary = max_indent end
       indent = 0
       width = boundary
-      if i == 0 and boundary > 0 then
-        indent = indent + tex.parindent / 65536
-        width = width - tex.parindent / 65536
-        if width < 0 then width = 0 end
-      end
     else
       if hang_mode then boundary = max_indent end
       indent = boundary
@@ -356,6 +362,7 @@ function wrapgraphics_run()
     img_h = img_h_pt,
     pos = position,
     parindent = tex.parindent / 65536,
+    start_page = status and status.page or 0,
   }
 
   if not post_cb_installed then
