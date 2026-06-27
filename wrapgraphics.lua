@@ -85,7 +85,7 @@ function wrapgraphics_run()
     local thr_attr = content:match('wg%-threshold="([^"]+)"')
     local pad_attr = content:match('wg%-padding="([^"]+)"')
     local smo_attr = content:match('wg%-smooth="([^"]+)"')
-    return thr_attr == thr and pad_attr == pad and (smo_attr == nil or smo_attr == smo)
+    return thr_attr == thr and pad_attr == pad and (smo_attr == nil or tonumber(smo_attr) == tonumber(smo))
   end
 
   local function run_python()
@@ -203,42 +203,29 @@ function wrapgraphics_run()
 
   local hang_mode = tex.wr_hang == "true"
 
-  local function points_in_range(y_top, y_bot)
-    local pts = {}
-    for _, pt in ipairs(shape.contour) do
-      local y_pt = pt[2] * sf
-      if y_pt >= y_top and y_pt <= y_bot then
-        table.insert(pts, pt[1] * sf)
-      end
-    end
-    return pts
-  end
-
-  local function interpolate_x(y_mid)
-    local above, below
-    for _, pt in ipairs(shape.contour) do
-      local y_pt = pt[2] * sf
-      if y_pt >= y_mid then
-        if not above or y_pt < above[2] then
-          above = {pt[1] * sf, y_pt}
-        end
-      end
-      if y_pt <= y_mid then
-        if not below or y_pt > below[2] then
-          below = {pt[1] * sf, y_pt}
+  local function boundary_x(y_level)
+    local xx, found
+    local n = #shape.contour
+    for i = 1, n do
+      local p1 = shape.contour[i]
+      local p2 = shape.contour[(i % n) + 1]
+      local y1 = p1[2] * sf
+      local y2 = p2[2] * sf
+      if (y1 <= y_level and y2 >= y_level) or (y2 <= y_level and y1 >= y_level) then
+        local t
+        if y2 == y1 then t = 0 else t = (y_level - y1) / (y2 - y1) end
+        local x_cross = p1[1] * sf + t * (p2[1] * sf - p1[1] * sf)
+        if not found then
+          xx = x_cross
+          found = true
+        elseif position == "right" then
+          if x_cross < xx then xx = x_cross end
+        else
+          if x_cross > xx then xx = x_cross end
         end
       end
     end
-    if above and below then
-      if above[2] == below[2] then return above[1] end
-      local t = (y_mid - below[2]) / (above[2] - below[2])
-      return below[1] + t * (above[1] - below[1])
-    elseif above then
-      return above[1]
-    elseif below then
-      return below[1]
-    end
-    return 0
+    return xx or 0, found
   end
 
   local function indent_for_line(i)
@@ -248,21 +235,25 @@ function wrapgraphics_run()
     if y_bot <= first_contour_y then return 0 end
     local s_top = math.max(y_top, first_contour_y)
     local s_bot = math.min(y_bot, img_h_pt)
-    local pts = points_in_range(s_top, s_bot)
-    local x_val
-    if next(pts) ~= nil then
-      if position == "right" then
-        x_val = math.min(table.unpack(pts))
-      else
-        x_val = math.max(table.unpack(pts))
+    local best_x, found
+    for s = 1, 3 do
+      local ym = s_top + (s_bot - s_top) * (s - 0.5) / 3
+      local bx, ok = boundary_x(ym)
+      if ok then
+        found = true
+        if not best_x or (position == "right" and bx < best_x) or (position ~= "right" and bx > best_x) then
+          best_x = bx
+        end
       end
-    else
-      x_val = interpolate_x((s_top + s_bot) / 2)
+    end
+    if not found then
+      local ym = (s_top + s_bot) / 2
+      best_x, _ = boundary_x(ym)
     end
     if position == "right" then
-      return hsize_pt - gg_max_x + x_val
+      return hsize_pt - gg_max_x + (best_x or 0)
     end
-    return x_val - gg_min_x
+    return (best_x or 0) - gg_min_x
   end
 
   local par_n = 1

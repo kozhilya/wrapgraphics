@@ -95,7 +95,7 @@ def test_write_svg(tmp_path):
     assert 'width="100"' in text
     assert 'height="200"' in text
     assert 'wg-dpi="72.0"' in text
-    assert 'wg-smooth="0.0"' in text
+    assert 'wg-smooth="0"' in text
     assert "<image" in text
     assert "<path" in text
     assert 'd="M 10.0 20.0 L 30.0 40.0 L 50.0 60.0 Z"' in text

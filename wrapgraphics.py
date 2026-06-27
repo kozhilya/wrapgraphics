@@ -181,7 +181,7 @@ def write_svg(
             f'     wg-dpi="{dpi:.1f}"'
             f' wg-threshold="{threshold}"'
             f' wg-padding="{padding}"'
-            f' wg-smooth="{smooth}"'
+            f' wg-smooth="{smooth:g}"'
             f' wg-invert="{"1" if invert else "0"}">\n'
         )
         f.write(
