@@ -5,7 +5,7 @@ import tempfile
 import numpy as np
 from PIL import Image, ImageDraw
 
-from wrapgraphics import load_alpha, threshold, dilate, trace_contour, write_lua
+from wrapgraphics import load_alpha, threshold, dilate, trace_contour, write_svg
 
 
 def _make_circle_image(size=32) -> Image.Image:
@@ -79,25 +79,17 @@ def test_trace_fully_opaque():
         assert y >= 0 and y <= 15
 
 
-def test_write_lua(tmp_path):
+def test_write_svg(tmp_path):
     pts = [(10.0, 20.0), (30.0, 40.0), (50.0, 60.0)]
-    out = tmp_path / "test.lua"
-    write_lua(pts, str(out), img_width=100, img_height=200, dpi=72.0)
+    img = tmp_path / "test.png"
+    out = tmp_path / "test.png-shape.svg"
+    write_svg(pts, str(out), str(img), img_width=100, img_height=200, dpi=72.0)
     text = out.read_text()
-    assert "return {" in text
-    assert "width = 100" in text
-    assert "height = 200" in text
-    assert "dpi = 72.0" in text
-    assert "contour" in text
-    assert "{10.0, 20.0}," in text
-    assert "{30.0, 40.0}," in text
-    # Verify it parses as valid Lua
-    import lupa  # type: ignore[import-untyped]
-    from lupa import LuaRuntime  # type: ignore[import-untyped]
-    lua = LuaRuntime(unpack_returned_tuples=True)
-    result = lua.execute(out.read_text())
-    assert result is not None
-    assert result["width"] == 100  # type: ignore[index]
-    assert result["height"] == 200  # type: ignore[index]
-    assert result["dpi"] == 72.0  # type: ignore[index]
-    assert len(result["contour"]) == 3  # type: ignore[index]
+    assert "<svg" in text
+    assert 'xmlns="http://www.w3.org/2000/svg"' in text
+    assert 'width="100"' in text
+    assert 'height="200"' in text
+    assert 'wg-dpi="72.0"' in text
+    assert "<image" in text
+    assert "<path" in text
+    assert 'd="M 10.0 20.0 L 30.0 40.0 L 50.0 60.0 Z"' in text
