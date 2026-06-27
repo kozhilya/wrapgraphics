@@ -43,6 +43,7 @@ function wrapgraphics_run()
       texio.write_nl("term and log", "[wrapgraphics] " .. msg)
     end
   end
+  texio.write("term and log", "[wrapgraphics] processing " .. tex.wr_filepath .. " (position=" .. tex.wr_position .. ") ")
 
   local img = tex.wr_filepath
   local out = img .. "-shape.svg"
