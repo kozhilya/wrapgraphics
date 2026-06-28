@@ -17,12 +17,16 @@
 \DeclareOptionX{contour}{\def\wr@contour{true}}
 \ProcessOptionsX\relax
 
+\newdimen\wr@tmpdimen
 \define@key{wr}{threshold}{\def\wr@threshold{#1}}
 \define@key{wr}{padding}{\def\wr@padding{#1}}
 \define@key{wr}{smooth}{\def\wr@smooth{#1}}
 \define@key{wr}{scale}{\def\wr@scale{#1}}
 \define@key{wr}{position}{\def\wr@position{#1}}
-\define@key{wr}{width}{\def\wr@width{#1}}
+\define@key{wr}{width}{%
+  \setlength{\wr@tmpdimen}{#1}%
+  \edef\wr@width{\the\wr@tmpdimen}%
+}
 \define@key{wr}{hang}{\def\wr@hang{#1}}
 \define@key{wr}{lines}{\def\wr@lines{#1}}
 
@@ -34,7 +38,13 @@
   \setkeys{wr}{#1}%
   \def\wr@filepath{#2}%
   %
-  \savebox{\wr@imagebox}{\includegraphics[scale=\wr@scale]{\wr@filepath}}%
+  \savebox{\wr@imagebox}{%
+    \ifx\wr@width\empty
+      \includegraphics[scale=\wr@scale]{\wr@filepath}%
+    \else
+      \includegraphics[width=\wr@width]{\wr@filepath}%
+    \fi
+  }%
   \setbox\wr@imagebox=\hbox{\lower\ht\wr@imagebox\box\wr@imagebox}%
   %
   \directlua{%
