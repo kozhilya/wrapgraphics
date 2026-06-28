@@ -96,7 +96,7 @@ Default \texttt{position=left} with \texttt{threshold=0.5},
 
 \begin{figure}[h]
   \centering
-  \preview[page=1,width=0.75\textwidth]{basic.pdf}
+  \preview[page=1,width=0.4\textwidth]{basic.pdf}
   \caption{Basic left wrapping.}
 \end{figure}
 
@@ -107,8 +107,8 @@ The \texttt{position} key controls which side the text flows around.
 
 \begin{figure}[h]
   \centering
-  \preview[page=1,width=0.48\textwidth]{comparison-left.pdf}
-  \preview[page=1,width=0.48\textwidth]{comparison-right.pdf}
+  \preview[page=1,width=0.4\textwidth]{comparison-left.pdf}
+  \preview[page=1,width=0.4\textwidth]{comparison-right.pdf}
   \caption{Left (default) and right wrapping.}
 \end{figure}
 
@@ -121,8 +121,8 @@ following the exact shape.
 
 \begin{figure}[h]
   \centering
-  \preview[page=1,width=0.48\textwidth]{comparison-left-hang.pdf}
-  \preview[page=1,width=0.48\textwidth]{comparison-right-hang.pdf}
+  \preview[page=1,width=0.4\textwidth]{comparison-left-hang.pdf}
+  \preview[page=1,width=0.4\textwidth]{comparison-right-hang.pdf}
   \caption{Hang mode (left and right).}
 \end{figure}
 
@@ -136,8 +136,8 @@ lets text come closer to the core of the image.
 
 \begin{figure}[h]
   \centering
-  \preview[page=1,width=0.48\textwidth]{params-threshold-03.pdf}
-  \preview[page=1,width=0.48\textwidth]{params-threshold-08.pdf}
+  \preview[page=1,width=0.4\textwidth]{params-threshold-03.pdf}
+  \preview[page=1,width=0.4\textwidth]{params-threshold-08.pdf}
   \caption{Threshold 0.3 (left) and 0.8 (right).}
 \end{figure}
 
@@ -150,8 +150,8 @@ before contour tracing.
 
 \begin{figure}[h]
   \centering
-  \preview[page=1,width=0.48\textwidth]{params-padding-50.pdf}
-  \preview[page=1,width=0.48\textwidth]{params-padding-00.pdf}
+  \preview[page=1,width=0.4\textwidth]{params-padding-50.pdf}
+  \preview[page=1,width=0.4\textwidth]{params-padding-00.pdf}
   \caption{Padding 50\,px (left) and 0\,px (right).}
 \end{figure}
 
@@ -163,7 +163,7 @@ lines use the full text width.
 
 \begin{figure}[h]
   \centering
-  \preview[page=1,width=0.75\textwidth]{lines.pdf}
+  \preview[page=1,width=0.4\textwidth]{lines.pdf}
   \caption{Wrapping limited to 5 lines.}
 \end{figure}
 
@@ -174,7 +174,7 @@ Instead of \texttt{scale}, you can specify an explicit \texttt{width}.
 
 \begin{figure}[h]
   \centering
-  \preview[page=1,width=0.75\textwidth]{width.pdf}
+  \preview[page=1,width=0.4\textwidth]{width.pdf}
   \caption{Explicit width (\texttt{width=8cm}).}
 \end{figure}
 
@@ -187,7 +187,7 @@ appropriate \texttt{\string\parshape}.
 
 \begin{figure}[h]
   \centering
-  \preview[page=1,width=0.75\textwidth]{multiple.pdf}
+  \preview[page=1,width=0.4\textwidth]{multiple.pdf}
   \caption{Multiple \texttt{\string\wrapgraphics} calls in one document.}
 \end{figure}
 
@@ -199,8 +199,21 @@ red over the image, which is useful for debugging and visualisation.
 
 \begin{figure}[h]
   \centering
-  \preview[page=1,width=0.75\textwidth]{verbose.pdf}
+  \preview[page=1,width=0.4\textwidth]{verbose.pdf}
   \caption{Contour overlay enabled (\texttt{contour} option).}
+\end{figure}
+
+\clearpage
+\subsection{Large image sticking out}
+
+A large image (wider than \texttt{\string\textwidth}) makes the wrapping
+indentation exceed the text width; the right side of the image protrudes
+into the margin.
+
+\begin{figure}[h]
+  \centering
+  \preview[page=1,width=0.4\textwidth]{stickout.pdf}
+  \caption{Large image with wrapping protruding into the margin.}
 \end{figure}
 
 \clearpage
@@ -211,8 +224,31 @@ The wrapping area is sized to the column width.
 
 \begin{figure}[h]
   \centering
-  \preview[page=1,width=0.48\textwidth]{twocolumn.pdf}
+  \preview[page=1,width=0.4\textwidth]{twocolumn.pdf}
   \caption{Text wrapping in two-column mode.}
+\end{figure}
+
+\clearpage
+\subsection{Two-column wide}
+
+With a large scale (or width) the image becomes wider than one column
+and reaches into the second column.
+
+\begin{figure}[h]
+  \centering
+  \preview[page=1,width=0.4\textwidth]{twocolumn-wide.pdf}
+  \caption{Wide image spanning two columns.}
+\end{figure}
+
+\clearpage
+\subsection{Two-column right}
+
+Right-side wrapping also works in \texttt{twocolumn} mode.
+
+\begin{figure}[h]
+  \centering
+  \preview[page=1,width=0.4\textwidth]{twocolumn-right.pdf}
+  \caption{Right-side wrapping in two columns.}
 \end{figure}
 
 \clearpage
