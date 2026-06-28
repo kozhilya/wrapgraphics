@@ -18,8 +18,8 @@ $(EXDIR)/%.pdf: $(EXDIR)/%.tex
 	cd $(EXDIR) && $(TEX) $*.tex
 
 $(DOC_PDF): wrapgraphics-doc.tex $(EXAMPLE_PDFS)
-	$(TEX_NOSHELL) wrapgraphics-doc.tex
-	$(TEX_NOSHELL) wrapgraphics-doc.tex
+	$(TEX) wrapgraphics-doc.tex
+	$(TEX) wrapgraphics-doc.tex
 
 clean:
 	rm -f $(EXDIR)/*.log $(EXDIR)/*.aux $(EXDIR)/*.fls $(EXDIR)/*.fdb_latexmk $(EXDIR)/*.out

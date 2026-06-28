@@ -7,7 +7,8 @@
 \usepackage{hyperref}
 \usepackage{enumitem}
 \usepackage{caption}
-\usepackage{fancyvrb}
+\usepackage{minted}
+\usepackage{noto}
 
 \geometry{a4paper, margin=2.5cm}
 
@@ -17,10 +18,12 @@
   \fbox{\includegraphics[#1]{example/#2}}%
 }
 
-\title{The \texttt{wrapgraphics} package\\
+\newcommand{\previewwidth}{0.35\textwidth}
+
+\title{The \texttt{wrapgraphics} package \\[0.5em]
   \large Wrap text around an image's alpha contour}
-\author{}
-\date{Version 0.2}
+\author{Ilya I. Kozhemyakin \\ \href{https://github.com/kozhilya/wrapgraphics}{github.com/kozhilya/wrapgraphics}}
+\date{Version 1.0 (\today)}
 
 \begin{document}
 
@@ -29,16 +32,76 @@
 \begin{abstract}
   \texttt{wrapgraphics} is a Lua\LaTeX{} package that wraps text around an
   image following the contour of its alpha channel. A Python backend
-  (Pillow) traces the contour; Lua computes \texttt{\string\parshape} entries;
-  the image is overlaid via \texttt{\string\rlap}.
+  (Pillow) traces the contour; Lua computes \mintinline{latex}|\parshape| entries.
 \end{abstract}
 
-\section{Requirements}
+\begin{figure*}[h]
+  \centering
+  \preview[page=1,width=0.6\textwidth]{basic.pdf}
+\end{figure*}
 
-\begin{itemize}
-  \item Lua\LaTeX{} (with \texttt{--shell-escape})
-  \item Python~3 + Pillow
-\end{itemize}
+\newpage
+
+\tableofcontents
+
+\newpage
+
+\section{Introduction}
+
+\texttt{wrapgraphics} is a Lua\LaTeX{} package that wraps text around an
+image following the contour of its alpha channel.
+
+\begin{minted}{latex}
+\usepackage{wrapgraphics}
+...
+\wrapgraphics[threshold=0.5, padding=5, scale=0.20]{image.png}
+\end{minted}
+
+The text following \texttt{\string\wrapgraphics} will flow around the image.
+The image is placed as an overlay so it sits inside the paragraph without
+breaking the text flow.
+
+The approach used in this package is similar to the approach in the
+\href{https://ctan.org/pkg/minted}{\texttt{minted}} package:
+
+\subsection{How it works}
+
+\begin{enumerate}
+  \item \mintinline{latex}|\wrapgraphics| saves the image in a box, then
+        calls Lua via \texttt{\string\directlua}.
+  \item Lua determines the contour SVG path and calls
+        \texttt{wrapgraphics.py} if a cached SVG
+        with matching parameters does not already exist.
+  \item Python extracts the alpha channel, applies threshold and
+        dilation (padding), traces the outer contour with the
+        Moore--Neighbor boundary following algorithm, and writes a
+        \texttt{-shape.svg} file.
+  \item Lua parses the SVG, converts pixel coordinates to
+        (\texttt{pt} / \texttt{sp}), and builds a flat list of
+        \mintinline{latex}|\parshape| entries (indent + width per line).
+  \item The \mintinline{latex}|\parshape| is injected into the TeX stream,
+        and the image is placed as an overlay (\mintinline{latex}|\rlap|)
+        so it sits inside the reflowed paragraph without consuming space.
+  \item A \texttt{post\_linebreak\_filter} callback tracks how many
+        lines have been consumed and clears the shape when the image height
+        is covered, ensuring correct behaviour across page breaks.
+\end{enumerate}
+
+
+\subsection{Special note about AI}
+AI agents (namely, Deepseek V4 Flash Free wia OpenCode) were used
+to create this package, but later its codebase and examples were manually
+checked by the author so that the package can be maintained without extra tools.
+
+The author understands that the approach of this package may be sub-optimal: the
+contour could probably be calculated with Lua, or the
+\mintinline{latex}|\parshape| could be placed with expl3 or with Lua.
+
+But while the author can maintain Python and some Lua produced by AI, he cannot
+do the same for complex Lua (such as contour calculations) and expl3 code.
+If someone else can help to produce the necessary changes to the repository, the author
+will be grateful, but until then the over-complication of the package will
+probably persist.
 
 \section{Installation}
 
@@ -46,295 +109,245 @@ Place \texttt{wrapgraphics.sty}, \texttt{wrapgraphics.lua}, and
 \texttt{wrapgraphics.py} in the same directory as your document
 (or in \texttt{\$TEXMF/tex/latex/wrapgraphics/} for system-wide install).
 
-\section{Usage}
-
-\begin{Verbatim}
-\usepackage{wrapgraphics}
-...
-\wrapgraphics[threshold=0.5, padding=5, scale=0.20]{image.png}
-\end{Verbatim}
-
-The text following \texttt{\string\wrapgraphics} will flow around the image.
-The image is placed as an overlay so it sits inside the paragraph without
-breaking the text flow.
+\begin{itemize}
+  \item Lua\LaTeX{} (with \texttt{--shell-escape})
+  \item Python~3 + Pillow
+\end{itemize}
 
 \section{Package options}
 
-\begin{description}
-  \item[verbose]  Write diagnostic messages to the terminal/log.
-  \item[contour]  Draw the traced contour in red over the image
-                  (debugging aid).
-\end{description}
+A document that uses the \texttt{wrapgraphics} package should contain a line like the
+following near the top of the document:
 
-\section{Key--value reference}
+\begin{minted}{latex}
+\usepackage[]{wrapgraphics}
+\end{minted}
 
-\begin{description}
-  \item[threshold] (default \texttt{0.5}) --- Alpha threshold (0--1).
-    Pixels with alpha $>$ threshold are considered opaque; the contour
-    runs along the boundary of opaque pixels.
-  \item[padding] (default \texttt{5}) --- Extra clearance in pixels
-    between the image edge and the wrapped text.
-  \item[scale] (default \texttt{1}) --- Scale factor passed to
-    \texttt{\string\includegraphics}.
-  \item[width] --- Explicit width override (e.g.\ \texttt{width=8cm}).
-    Overrides \texttt{scale}.
-  \item[position] (\texttt{left}, \texttt{right} or \texttt{middle}) ---
-    Which side of the image the text wraps around.
-    \texttt{middle} centres the image and lets text flow between the
-    left and right contour edges.
-  \item[hang] (\texttt{true} or \texttt{false}) --- Use a constant
-    indent equal to the widest contour point, rather than following the
-    exact shape.
-  \item[lines] --- Limit wrapping to the first $N$ lines; remaining
-    lines use the full text width.
-  \item[$\mathit{shift\_x}$] --- Horizontal offset of the image
-    (e.g.\ \texttt{shift\_x=20pt}).  Positive = right.
-  \item[$\mathit{shift\_y}$] --- Vertical offset of the image
-    (e.g.\ \texttt{shift\_y=10pt}).  Positive = up.
-    Does not affect text layout above the image; useful when the
-    upper part of the image is transparent.
-  \item[anchor] (\texttt{here}, \texttt{nw}, \texttt{ne},
-    \texttt{sw} or \texttt{se}) --- Where to anchor the image.
-    \texttt{here} (default) places it inline at the paragraph start.
-    The compass-point values pin it to the corresponding corner
-    of the text area (north-west = top-left, etc.).
-\end{description}
+Supported options are \texttt{verbose} (\ref{package:verbose}) and \texttt{contour} (\ref{package:contour}).
+
+\subsection{\texttt{verbose}}\label{package:verbose}
+
+When enabled, additional diagnostic messages are written to the
+terminal and log file.  It can be used for debugging or performance
+analysis.  It should be disabled when compiling large documents.
+
+\subsection{\texttt{contour}}\label{package:contour}
+
+The \texttt{contour} option draws the traced contour in red over the
+image for debugging and visualisation purposes.
+
+This option can be enabled for each image separately.
+
+\begin{minipage}{\textwidth}
+  \centering
+  \preview[page=1,width=\previewwidth]{verbose.pdf}
+  \captionof{figure}{Contour overlay enabled (\texttt{contour} option).}
+\end{minipage}
+
+
+\section{Macro options}
+
+The \mintinline{latex}|\wrapgraphics| command accepts the options listed below,
+passed as a comma-separated key–value list.
+
+\subsection{\texttt{position} (default: \texttt{left})}\label{macro:position}
+
+Which side of the image the text wraps around.  Accepted values are
+\texttt{left}, \texttt{right}, and \texttt{middle}.
+With \texttt{middle} the image is centred and text flows around it.
+
+\begin{minipage}{\textwidth}
+  \centering
+  \preview[page=1,width=\previewwidth]{comparison-left.pdf}
+  \preview[page=1,width=\previewwidth]{comparison-right.pdf}
+  \captionof{figure}{Left (default) and right wrapping.}
+\end{minipage}
+
+
+\subsection{\texttt{threshold} (default: \texttt{0.5})}\label{macro:threshold}
+
+Alpha threshold (0--1).  Pixels with alpha greater than the threshold
+are considered opaque; the contour runs along the boundary of opaque
+pixels.  A low value treats more pixels as opaque, keeping the contour
+closer to the visible image edge.  A high value lets text come closer
+to the core of the image.
+
+\begin{minipage}{\textwidth}
+  \centering
+  \preview[page=1,width=\previewwidth]{params-threshold-03.pdf}
+  \preview[page=1,width=\previewwidth]{params-threshold-08.pdf}
+  \captionof{figure}{Threshold 0.3 (left) and 0.8 (right).}
+\end{minipage}
+
+
+\subsection{\texttt{padding} (default: \texttt{5})}\label{macro:padding}
+
+Extra clearance in pixels between the image edge and the wrapped text.
+It is implemented by dilating the alpha mask before contour tracing.
+
+Note that value of this option is pixels of image. Because of it, same
+value will produce different result for small and big images.
+
+\begin{minipage}{\textwidth}
+  \centering
+  \preview[page=1,width=\previewwidth]{params-padding-50.pdf}
+  \preview[page=1,width=\previewwidth]{params-padding-00.pdf}
+  \captionof{figure}{Padding 50\,px (left) and 0\,px (right).}
+\end{minipage}
+
+
+\subsection{\texttt{scale} (default: \texttt{1})}\label{macro:scale}
+
+Scale factor passed to \mintinline{latex}|\includegraphics|.  Overridden
+by \texttt{width} if both are specified.
+
+\begin{minipage}{\textwidth}
+  \centering
+  \preview[page=1,width=\previewwidth]{basic.pdf}
+  \captionof{figure}{Default left wrapping with \texttt{scale=0.20}.}
+\end{minipage}
+
+
+\subsection{\texttt{width}}\label{macro:width}
+
+Explicit width passed to \mintinline{latex}|\includegraphics|,
+e.g.\ \texttt{width=8cm}.  Overrides \texttt{scale}.
+
+\begin{minipage}{\textwidth}
+  \centering
+  \preview[page=1,width=\previewwidth]{width.pdf}
+  \captionof{figure}{Explicit width (\texttt{width=8cm}).}
+\end{minipage}
+
+
+\subsection{\texttt{hang} (default: \texttt{false})}\label{macro:hang}
+
+When set to \texttt{true} the indent becomes constant for all lines,
+equal to the widest contour point.  Text is pushed by a fixed amount
+rather than following the exact shape.
+
+\begin{minipage}{\textwidth}
+  \centering
+  \preview[page=1,width=\previewwidth]{comparison-left-hang.pdf}
+  \preview[page=1,width=\previewwidth]{comparison-right-hang.pdf}
+  \captionof{figure}{Hang mode (left and right).}
+\end{minipage}
+
+
+\subsection{\texttt{lines}}\label{macro:lines}
+
+Limit wrapping to the first $N$ lines; subsequent lines use the full
+text width.
+
+\begin{minipage}{\textwidth}
+  \centering
+  \preview[page=1,width=\previewwidth]{lines.pdf}
+  \captionof{figure}{Wrapping limited to 5 lines.}
+\end{minipage}
+
+
+\subsection{\texttt{shift\_x}, \texttt{shift\_y}}\label{macro:shift}
+
+Horizontal and vertical offset of the image
+(e.g.\ \texttt{shift\_x=20pt}, \texttt{shift\_y=10pt}).
+Positive \texttt{shift\_x} moves the image right;
+positive \texttt{shift\_y} moves the image up.
+
+Shifting does not affect text layout above the image;
+it is most useful when the upper part of the image is transparent.
+
+\begin{minipage}{\textwidth}
+  \centering
+  \preview[page=1,width=\previewwidth]{shift.pdf}
+  \captionof{figure}{Image shifted right by 20\,pt and up by 10\,pt.}
+\end{minipage}
+
+
+\subsection{\texttt{anchor} (default: \texttt{here})}\label{macro:anchor}
+
+Where to anchor the image.  The value \texttt{here} (default) places it
+inline at the paragraph start.  The compass-point values
+(\texttt{nw}, \texttt{ne}, \texttt{sw}, \texttt{se}) pin it to the
+corresponding corner of the text area (north-west = top-left, etc.).
+
+\begin{minipage}{\textwidth}
+  \centering
+  \preview[page=1,width=\previewwidth]{anchor.pdf}
+  \captionof{figure}{Image anchored to the top-right corner (\texttt{anchor=ne}).}
+\end{minipage}
+
 
 \section{Examples}
 
-\subsection{Basic usage}
-
-Default \texttt{position=left} with \texttt{threshold=0.5},
-\texttt{padding=5}, \texttt{scale=0.20}.
-
-\begin{figure}[h]
-  \centering
-  \preview[page=1,width=0.4\textwidth]{basic.pdf}
-  \caption{Basic left wrapping.}
-\end{figure}
-
-\clearpage
-\subsection{Left vs.\ right wrapping}
-
-The \texttt{position} key controls which side the text flows around.
-
-\begin{figure}[h]
-  \centering
-  \preview[page=1,width=0.4\textwidth]{comparison-left.pdf}
-  \preview[page=1,width=0.4\textwidth]{comparison-right.pdf}
-  \caption{Left (default) and right wrapping.}
-\end{figure}
-
-\clearpage
-\subsection{Hang mode}
-
-With \texttt{hang=true} the indent is constant for all lines, equal to the
-widest contour point.  Text is pushed by a fixed amount rather than
-following the exact shape.
-
-\begin{figure}[h]
-  \centering
-  \preview[page=1,width=0.4\textwidth]{comparison-left-hang.pdf}
-  \preview[page=1,width=0.4\textwidth]{comparison-right-hang.pdf}
-  \caption{Hang mode (left and right).}
-\end{figure}
-
-\clearpage
-\subsection{Threshold}
-
-The \texttt{threshold} parameter (0--1) controls how much of the alpha
-channel is considered opaque.  A low value treats more pixels as opaque,
-keeping the contour closer to the visible image edge.  A high value
-lets text come closer to the core of the image.
-
-\begin{figure}[h]
-  \centering
-  \preview[page=1,width=0.4\textwidth]{params-threshold-03.pdf}
-  \preview[page=1,width=0.4\textwidth]{params-threshold-08.pdf}
-  \caption{Threshold 0.3 (left) and 0.8 (right).}
-\end{figure}
-
-\clearpage
-\subsection{Padding}
-
-The \texttt{padding} value (in pixels) adds extra clearance between the
-contour and the text.  This is implemented by dilating the alpha mask
-before contour tracing.
-
-\begin{figure}[h]
-  \centering
-  \preview[page=1,width=0.4\textwidth]{params-padding-50.pdf}
-  \preview[page=1,width=0.4\textwidth]{params-padding-00.pdf}
-  \caption{Padding 50\,px (left) and 0\,px (right).}
-\end{figure}
-
-\clearpage
-\subsection{Limit lines}
-
-The \texttt{lines} key limits wrapping to the first $N$ lines; subsequent
-lines use the full text width.
-
-\begin{figure}[h]
-  \centering
-  \preview[page=1,width=0.4\textwidth]{lines.pdf}
-  \caption{Wrapping limited to 5 lines.}
-\end{figure}
-
-\clearpage
-\subsection{Width override}
-
-Instead of \texttt{scale}, you can specify an explicit \texttt{width}.
-
-\begin{figure}[h]
-  \centering
-  \preview[page=1,width=0.4\textwidth]{width.pdf}
-  \caption{Explicit width (\texttt{width=8cm}).}
-\end{figure}
-
-\clearpage
 \subsection{Multiple images}
 
 Multiple \texttt{\string\wrapgraphics} calls can be placed throughout the
 document.  Each call independently traces the contour and generates the
 appropriate \texttt{\string\parshape}.
 
-\begin{figure}[h]
+\begin{minipage}{\textwidth}
   \centering
-  \preview[page=1,width=0.4\textwidth]{multiple.pdf}
-  \caption{Multiple \texttt{\string\wrapgraphics} calls in one document.}
-\end{figure}
+  \preview[page=1,width=\previewwidth]{multiple.pdf}
+  \captionof{figure}{Multiple \texttt{\string\wrapgraphics} calls in one document.}
+\end{minipage}
 
-\clearpage
-\subsection{Contour overlay}
 
-With the \texttt{contour} package option, the traced contour is drawn in
-red over the image, which is useful for debugging and visualisation.
-
-\begin{figure}[h]
-  \centering
-  \preview[page=1,width=0.4\textwidth]{verbose.pdf}
-  \caption{Contour overlay enabled (\texttt{contour} option).}
-\end{figure}
-
-\clearpage
 \subsection{Large image sticking out}
 
 A large image (wider than \texttt{\string\textwidth}) makes the wrapping
 indentation exceed the text width; the right side of the image protrudes
 into the margin.
 
-\begin{figure}[h]
+\begin{minipage}{\textwidth}
   \centering
-  \preview[page=1,width=0.4\textwidth]{stickout.pdf}
-  \caption{Large image with wrapping protruding into the margin.}
-\end{figure}
+  \preview[page=1,width=\previewwidth]{stickout.pdf}
+  \captionof{figure}{Large image with wrapping protruding into the margin.}
+\end{minipage}
 
-\clearpage
+
 \subsection{Two-column layout}
 
 \texttt{\string\wrapgraphics} works in \texttt{twocolumn} mode.
 The wrapping area is sized to the column width.
 
-\begin{figure}[h]
+\begin{minipage}{\textwidth}
   \centering
-  \preview[page=1,width=0.4\textwidth]{twocolumn.pdf}
-  \caption{Text wrapping in two-column mode.}
-\end{figure}
+  \preview[page=1,width=\previewwidth]{twocolumn.pdf}
+  \captionof{figure}{Text wrapping in two-column mode.}
+\end{minipage}
 
-\clearpage
+
 \subsection{Two-column wide}
 
 With a large scale (or width) the image becomes wider than one column
 and reaches into the second column.
 
-\begin{figure}[h]
+\begin{minipage}{\textwidth}
   \centering
-  \preview[page=1,width=0.4\textwidth]{twocolumn-wide.pdf}
-  \caption{Wide image spanning two columns.}
-\end{figure}
+  \preview[page=1,width=\previewwidth]{twocolumn-wide.pdf}
+  \captionof{figure}{Wide image spanning two columns.}
+\end{minipage}
 
-\clearpage
+
 \subsection{Two-column right}
 
 Right-side wrapping also works in \texttt{twocolumn} mode.
 
-\begin{figure}[h]
+\begin{minipage}{\textwidth}
   \centering
-  \preview[page=1,width=0.4\textwidth]{twocolumn-right.pdf}
-  \caption{Right-side wrapping in two columns.}
-\end{figure}
+  \preview[page=1,width=\previewwidth]{twocolumn-right.pdf}
+  \captionof{figure}{Right-side wrapping in two columns.}
+\end{minipage}
 
-\clearpage
-\subsection{Image shift}
-
-The \texttt{shift\char`_x} and \texttt{shift\char`_y} keys move the
-image without changing the wrapping contour.
-
-\noindent Note: shifting does not affect text layout above the image;
-it is most useful when the upper part of the image is transparent.
-
-\begin{figure}[h]
-  \centering
-  \preview[page=1,width=0.4\textwidth]{shift.pdf}
-  \caption{Image shifted right by 20\,pt and up by 10\,pt.}
-\end{figure}
-
-\clearpage
-\subsection{Page corner anchors}
-
-The \texttt{anchor} key pins the image to a text-area corner.
-Text wrapping proceeds from that corner.
-
-\begin{figure}[h]
-  \centering
-  \preview[page=1,width=0.4\textwidth]{anchor.pdf}
-  \caption{Image anchored to the top-right corner (\texttt{anchor=ne}).}
-\end{figure}
-
-\clearpage
-\subsection{Wrapping on both sides}
-
-With \texttt{position=middle} the image is centered and text flows
-between the left and right contour boundaries.
-
-\begin{figure}[h]
-  \centering
-  \preview[page=1,width=0.4\textwidth]{wrap-mid.pdf}
-  \caption{Image centred with bilateral text flow.}
-\end{figure}
-
-\clearpage
-\section{How it works}
-
-\begin{enumerate}
-  \item \texttt{\string\wrapgraphics} saves the image in a box, then
-    calls Lua via \texttt{\string\directlua}.
-  \item Lua determines the contour SVG path and calls
-    \texttt{wrapgraphics.py} (via \texttt{os.execute}) if a cached SVG
-    with matching parameters does not already exist.
-  \item Python extracts the alpha channel, applies threshold and
-    dilation (padding), traces the outer contour with the
-    Moore--Neighbor boundary following algorithm, and writes a
-    \texttt{.shape.svg} file.
-  \item Lua parses the SVG, converts pixel coordinates to
-    (\texttt{pt} / \texttt{sp}), and builds a flat list of
-    \texttt{\string\parshape} entries (indent + width per line).
-  \item The \texttt{\string\parshape} is injected into the TeX stream,
-    and the image is placed as an overlay (\texttt{\string\rlap})
-    so it sits inside the reflowed paragraph without consuming space.
-  \item A \texttt{post\_linebreak\_filter} callback tracks how many
-    lines have been consumed and clears the shape when the image height
-    is covered, ensuring correct behaviour across page breaks.
-\end{enumerate}
 
 \section{Source files}
 
 \begin{description}
   \item[\texttt{wrapgraphics.sty}]  Package file; defines keys, loads Lua.
   \item[\texttt{wrapgraphics.lua}]  Lua module; SVG parsing, parshape
-    computation, image placement.
+        computation, image placement.
   \item[\texttt{wrapgraphics.py}]   Python CLI; alpha threshold,
-    dilation, contour tracing (Moore--Neighbor).
+        dilation, contour tracing (Moore--Neighbor).
 \end{description}
 
 \end{document}
