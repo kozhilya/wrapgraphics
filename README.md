@@ -33,6 +33,19 @@ Place `wrapgraphics.sty` and `wrapgraphics.py` in the same directory as your doc
 | `padding` | 5 | Extra clearance in pixels between image edge and text. |
 | `scale` | 1 | Scale factor passed to `\includegraphics`. |
 
+## Building examples
+
+```sh
+cd build
+make          # compile all examples
+make clean    # remove build artifacts
+```
+
+Or manually:
+```sh
+lualatex --shell-escape --output-directory=build example/basic.tex
+```
+
 ## How it works
 
 1. `\wrapgraphics` calls `wrapgraphics.py` via `\directlua{os.execute(...)}`
