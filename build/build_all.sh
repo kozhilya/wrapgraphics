@@ -18,10 +18,11 @@ for tex in example/*.tex; do
     echo ""
     echo "=== Compiling $name ==="
     echo ""
-    lualatex --shell-escape --output-directory=build "$tex"
+    lualatex --shell-escape --output-directory=example "$tex" && \
+      rm -f "example/$name.aux" "example/$name.log" "example/$name.fls" "example/$name.fdb_latexmk"
 done
 
 echo ""
 echo "=== All examples compiled ==="
-echo "Output files are in build/"
-ls -lh build/*.pdf 2>/dev/null || echo "(no PDFs found)"
+echo "Output files are in example/"
+ls -lh example/*.pdf 2>/dev/null || echo "(no PDFs found)"

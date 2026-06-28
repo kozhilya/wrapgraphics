@@ -37,20 +37,20 @@ Place `wrapgraphics.sty` and `wrapgraphics.py` in the same directory as your doc
 
 ```sh
 cd build
-make          # compile all examples
-make clean    # remove build artifacts
+make          # compile all examples (PDFs go to example/)
+make clean    # remove build artifacts from example/
 ```
 
 Or manually:
 ```sh
-lualatex --shell-escape --output-directory=build example/basic.tex
+cd build && bash build_all.sh
 ```
 
 ## How it works
 
 1. `\wrapgraphics` calls `wrapgraphics.py` via `\directlua{os.execute(...)}`
 2. Python extracts the alpha channel, applies threshold and dilation (padding), traces the outer contour with Moore-Neighbor boundary following
-3. LuaLaTeX reads the contour, computes per-line `\parshape` margins (TODO: full implementation)
+3. LuaLaTeX reads the contour, computes per-line `\parshape` margins
 4. Image is placed as a overlay; text reflows around it
 
 ## Development
@@ -58,5 +58,5 @@ lualatex --shell-escape --output-directory=build example/basic.tex
 ```sh
 python3 -m pytest tests/
 python3 wrapgraphics.py --input image.png --output image.png-shape.svg --threshold 0.5 --padding 5
-lualatex --shell-escape demo/demo.tex
+lualatex --shell-escape example/basic.tex
 ```
