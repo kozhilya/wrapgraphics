@@ -1,0 +1,19 @@
+% !TEX program = lualatex
+% !TEX options = --shell-escape
+\documentclass{article}
+\usepackage[verbose]{wrapgraphics}
+\usepackage{lipsum}
+\usepackage{geometry}
+\geometry{a4paper, margin=2.5cm}
+
+\begin{document}
+
+\section*{Explicit image width}
+
+Use \texttt{width=8cm} instead of \texttt{scale} to set image
+dimensions directly.
+
+\wrapgraphics[width=8cm]{tree.png}
+\lipsum[1-5]
+
+\end{document}

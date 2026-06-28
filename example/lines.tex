@@ -1,0 +1,20 @@
+% !TEX program = lualatex
+% !TEX options = --shell-escape
+\documentclass{article}
+\usepackage[verbose]{wrapgraphics}
+\usepackage{lipsum}
+\usepackage{geometry}
+\geometry{a4paper, margin=2.5cm}
+
+\begin{document}
+
+\section*{Manual line count}
+
+Override the number of wrapped lines with \texttt{lines=5}.
+Only the first 5 lines wrap around the image; the rest fall back
+to full text width.
+
+\wrapgraphics[scale=0.20, lines=5]{tree.png}
+\lipsum[1-5]
+
+\end{document}

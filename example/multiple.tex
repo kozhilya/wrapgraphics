@@ -1,0 +1,32 @@
+% !TEX program = lualatex
+% !TEX options = --shell-escape
+\documentclass{article}
+\usepackage[verbose]{wrapgraphics}
+\usepackage{lipsum}
+\usepackage{geometry}
+\geometry{a4paper, margin=2.5cm}
+
+\begin{document}
+
+\section*{Multiple \texttt{\string\wrapgraphics} calls}
+
+Images can be placed multiple times throughout the document.
+Each call independently traces the contour and generates
+the appropriate \texttt{\string\parshape}.
+
+\subsection*{First image (left)}
+
+\wrapgraphics[scale=0.18, threshold=0.5]{tree.png}
+\lipsum[1-2]
+
+\subsection*{Second image (right)}
+
+\wrapgraphics[scale=0.18, threshold=0.5, position=right]{tree.png}
+\lipsum[3-4]
+
+\subsection*{Third image (smaller)}
+
+\wrapgraphics[scale=0.12, threshold=0.5]{tree.png}
+\lipsum[5-6]
+
+\end{document}

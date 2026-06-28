@@ -1,0 +1,19 @@
+% !TEX program = lualatex
+% !TEX options = --shell-escape
+\documentclass{article}
+\usepackage[verbose]{wrapgraphics}
+\usepackage{lipsum}
+\usepackage{geometry}
+\geometry{a4paper, margin=2.5cm}
+
+\begin{document}
+
+\section*{Basic usage}
+
+Default \texttt{position=left} with \texttt{threshold=0.5},
+\texttt{padding=5}, \texttt{scale=0.20}.
+
+\wrapgraphics[scale=0.20]{tree.png}
+\lipsum[1-5]
+
+\end{document}

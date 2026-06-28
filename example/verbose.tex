@@ -1,0 +1,19 @@
+% !TEX program = lualatex
+% !TEX options = --shell-escape
+\documentclass{article}
+\usepackage[verbose,contour]{wrapgraphics}
+\usepackage{lipsum}
+\usepackage{geometry}
+\geometry{a4paper, margin=2.5cm}
+
+\begin{document}
+
+\section*{Verbose with contour overlay}
+
+The \texttt{contour} package option draws the traced contour
+in red over the image, useful for debugging.
+
+\wrapgraphics[scale=0.20]{tree.png}
+\lipsum[1-5]
+
+\end{document}
