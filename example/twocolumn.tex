@@ -1,0 +1,16 @@
+% !TEX program = lualatex
+% !TEX options = --shell-escape
+\documentclass[twocolumn]{article}
+\usepackage[verbose]{wrapgraphics}
+\usepackage{lipsum}
+\usepackage{geometry}
+\geometry{a4paper, margin=2.5cm}
+
+\begin{document}
+
+\section*{Two-column wrapping}
+
+\wrapgraphics[scale=0.20]{img/tree.png}
+\lipsum[1-5]
+
+\end{document}
