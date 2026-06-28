@@ -1,4 +1,4 @@
-TEX       := lualatex --shell-escape --output-directory=build
+TEX       := lualatex --shell-escape
 SRCDIR    := ..
 EXAMPLES  := $(wildcard $(SRCDIR)/example/*.tex)
 PDFS      := $(patsubst $(SRCDIR)/example/%.tex,%.pdf,$(EXAMPLES))
@@ -8,7 +8,7 @@ PDFS      := $(patsubst $(SRCDIR)/example/%.tex,%.pdf,$(EXAMPLES))
 all: $(PDFS)
 
 %.pdf: $(SRCDIR)/example/%.tex
-	$(TEX) $(SRCDIR)/example/$*.tex
+	cd $(SRCDIR) && $(TEX) --output-directory=$(CURDIR) example/$*.tex
 
 clean:
 	rm -f *.pdf *.log *.aux *.fls *.fdb_latexmk

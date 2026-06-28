@@ -10,3 +10,5 @@ __pycache__/
 *~
 *-shape.svg
 .venv/
+
+opencode.json
