@@ -300,14 +300,6 @@ function wrapgraphics_run()
     return (best_x or 0) - gg_min_x
   end
 
-  -- Limit wrapping to what fits on the current page
-  -- Image is \smash'ed, so it doesn't contribute vertical space;
-  -- only baselineskip matters for page-fit calculation.
-  local pagetotal_pt = tex.pagetotal / 65536
-  local vsize_pt = tex.vsize / 65536
-  local max_fit = math.max(2, math.floor((vsize_pt - pagetotal_pt - 0.5 * bskip_pt) / bskip_pt))
-  num_lines = math.max(0, math.min(num_lines, max_fit - 2))
-
   local par_n = 1
   local max_indent = 0
   local par_lines_flat = {0, hsize_pt}
@@ -330,10 +322,6 @@ function wrapgraphics_run()
     par_lines_flat[#par_lines_flat + 1] = width
     par_n = par_n + 1
   end
-  -- Sentinel: any line beyond wrapping entries is full width
-  par_lines_flat[#par_lines_flat + 1] = 0
-  par_lines_flat[#par_lines_flat + 1] = hsize_pt
-  par_n = par_n + 1
 
   local fmt4 = string.char(37) .. ".4f"
   local first_indent = indent_for_line(0)
