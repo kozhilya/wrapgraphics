@@ -1,6 +1,5 @@
 local wr_remaining = nil
 local post_cb_installed = false
-local pre_cb_installed = false
 
 local function clear_on_page_change()
   if not wr_remaining then return true end
@@ -57,59 +56,16 @@ function wr_setup_parshape()
     return
   end
   local parts = {}
-  local pi = st.parindent
   for i = 1, n do
     local idx = (st.used + i - 1) * 2 + 1
-    local indent = st.lines[idx]
-    local width = st.lines[idx + 1]
-    if i == 1 then
-      indent = indent + pi
-      width = width - pi
-      if width < 0 then width = 0 end
-    end
-    parts[#parts + 1] = indent
-    parts[#parts + 1] = width
+    parts[#parts + 1] = st.lines[idx]
+    parts[#parts + 1] = st.lines[idx + 1]
   end
   local str = "\\parshape " .. n .. " "
   for _, v in ipairs(parts) do
     str = str .. string.format("%.1f", v) .. "pt "
   end
   tex.print(str)
-end
-
-local function wr_setup_parshape_filter(head, is_display)
-  if not wr_remaining then return head end
-  if clear_on_page_change() then return head end
-  local st = wr_remaining
-  if st.used * st.bskip >= st.img_h then
-    wr_remaining = nil
-    return head
-  end
-  local n = st.total - st.used
-  if n <= 0 then
-    wr_remaining = nil
-    return head
-  end
-  local parts = {}
-  local pi = st.parindent
-  for i = 1, n do
-    local idx = (st.used + i - 1) * 2 + 1
-    local indent = st.lines[idx]
-    local width = st.lines[idx + 1]
-    if i == 1 and st.used > 0 then
-      indent = indent + pi
-      width = width - pi
-      if width < 0 then width = 0 end
-    end
-    parts[#parts + 1] = indent
-    parts[#parts + 1] = width
-  end
-  local str = "\\parshape " .. n .. " "
-  for _, v in ipairs(parts) do
-    str = str .. string.format("%.1f", v) .. "pt "
-  end
-  tex.print(str)
-  return head
 end
 
 function wrapgraphics_run()
@@ -441,8 +397,5 @@ function wrapgraphics_run()
   end
 
   tex.print("\\noindent" .. imbox .. parshape_str)
-  if not pre_cb_installed then
-    luatexbase.add_to_callback("pre_linebreak_filter", wr_setup_parshape_filter, "wrapgraphics")
-    pre_cb_installed = true
-  end
+  tex.print("\\everypar{\\directlua{wr_setup_parshape()}}")
 end
