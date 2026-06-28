@@ -16,10 +16,25 @@ local function post_linebreak_filter(head, is_display)
   if not wr_remaining then return head end
   if clear_on_page_change() then return head end
   local st = wr_remaining
+
   local nlines = 0
   for line in node.traverse_id(node.id("hlist"), head) do
     nlines = nlines + 1
   end
+
+  -- Detect page break within paragraph
+  local pt = tex.pagetotal / 65536
+  local vs = tex.vsize / 65536
+  local para_h = nlines * st.bskip
+
+  if pt + para_h > vs then
+    -- Paragraph spans pages: consume only the lines that fit on this page
+    local on_page = math.max(1, math.floor((vs - pt) / st.bskip))
+    st.used = st.used + on_page
+    wr_remaining = nil
+    return head
+  end
+
   st.used = st.used + nlines
   if st.used >= st.total or st.used * st.bskip >= st.img_h then
     wr_remaining = nil
@@ -285,6 +300,14 @@ function wrapgraphics_run()
     return (best_x or 0) - gg_min_x
   end
 
+  -- Limit wrapping to what fits on the current page
+  -- Image is \smash'ed, so it doesn't contribute vertical space;
+  -- only baselineskip matters for page-fit calculation.
+  local pagetotal_pt = tex.pagetotal / 65536
+  local vsize_pt = tex.vsize / 65536
+  local max_fit = math.max(2, math.floor((vsize_pt - pagetotal_pt - 0.5 * bskip_pt) / bskip_pt))
+  num_lines = math.max(0, math.min(num_lines, max_fit - 2))
+
   local par_n = 1
   local max_indent = 0
   local par_lines_flat = {0, hsize_pt}
@@ -307,6 +330,10 @@ function wrapgraphics_run()
     par_lines_flat[#par_lines_flat + 1] = width
     par_n = par_n + 1
   end
+  -- Sentinel: any line beyond wrapping entries is full width
+  par_lines_flat[#par_lines_flat + 1] = 0
+  par_lines_flat[#par_lines_flat + 1] = hsize_pt
+  par_n = par_n + 1
 
   local fmt4 = string.char(37) .. ".4f"
   local first_indent = indent_for_line(0)
