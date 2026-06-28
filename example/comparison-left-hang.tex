@@ -1,0 +1,16 @@
+% !TEX program = lualatex
+% !TEX options = --shell-escape
+\documentclass{article}
+\usepackage[verbose]{wrapgraphics}
+\usepackage{lipsum}
+\usepackage{geometry}
+\geometry{a4paper, margin=2.5cm}
+
+\begin{document}
+
+\section*{Hang left}
+
+\wrapgraphics[scale=0.16, position=left, hang=true]{img/tree.png}
+\lipsum[1-3]
+
+\end{document}
