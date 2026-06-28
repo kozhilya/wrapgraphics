@@ -1,0 +1,241 @@
+% !TEX program = lualatex
+% !TEX options = --shell-escape
+\documentclass{article}
+
+\usepackage{wrapgraphics}
+\usepackage{lipsum}
+\usepackage{geometry}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{fancyvrb}
+
+\geometry{a4paper, margin=2.5cm}
+
+\hypersetup{colorlinks=true, urlcolor=blue, linkcolor=blue}
+
+\title{The \texttt{wrapgraphics} package\\
+  \large Wrap text around an image's alpha contour}
+\author{}
+\date{Version 0.2}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+  \texttt{wrapgraphics} is a Lua\LaTeX{} package that wraps text around an
+  image following the contour of its alpha channel. A Python backend
+  (Pillow) traces the contour; Lua computes \texttt{\string\parshape} entries;
+  the image is overlaid via \texttt{\string\rlap}.
+\end{abstract}
+
+\section{Requirements}
+
+\begin{itemize}
+  \item Lua\LaTeX{} (with \texttt{--shell-escape})
+  \item Python~3 + Pillow
+\end{itemize}
+
+\section{Installation}
+
+Place \texttt{wrapgraphics.sty}, \texttt{wrapgraphics.lua}, and
+\texttt{wrapgraphics.py} in the same directory as your document
+(or in \texttt{\$TEXMF/tex/latex/wrapgraphics/} for system-wide install).
+
+\section{Usage}
+
+\begin{Verbatim}
+\usepackage{wrapgraphics}
+...
+\wrapgraphics[threshold=0.5, padding=5, scale=0.20]{image.png}
+\end{Verbatim}
+
+The text following \texttt{\string\wrapgraphics} will flow around the image.
+The image is placed as an overlay so it sits inside the paragraph without
+breaking the text flow.
+
+\section{Package options}
+
+\begin{description}
+  \item[verbose]  Write diagnostic messages to the terminal/log.
+  \item[contour]  Draw the traced contour in red over the image
+                  (debugging aid).
+\end{description}
+
+\section{Key--value reference}
+
+\begin{description}
+  \item[threshold] (default \texttt{0.5}) --- Alpha threshold (0--1).
+    Pixels with alpha $>$ threshold are considered opaque; the contour
+    runs along the boundary of opaque pixels.
+  \item[padding] (default \texttt{5}) --- Extra clearance in pixels
+    between the image edge and the wrapped text.
+  \item[scale] (default \texttt{1}) --- Scale factor passed to
+    \texttt{\string\includegraphics}.
+  \item[width] --- Explicit width override (e.g.\ \texttt{width=8cm}).
+    Overrides \texttt{scale}.
+  \item[position] (\texttt{left} or \texttt{right}) --- Which side of
+    the image the text wraps around.
+  \item[hang] (\texttt{true} or \texttt{false}) --- Use a constant
+    indent equal to the widest contour point, rather than following the
+    exact shape.
+  \item[lines] --- Limit wrapping to the first $N$ lines; remaining
+    lines use the full text width.
+\end{description}
+
+\section{Examples}
+
+\subsection{Basic usage}
+
+Default \texttt{position=left} with \texttt{threshold=0.5},
+\texttt{padding=5}, \texttt{scale=0.20}.
+
+\noindent\wrapgraphics[scale=0.20]{example/img/tree.png}
+\lipsum[1]
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[page=1,width=0.75\textwidth]{example/basic.pdf}
+  \caption{Basic left wrapping.}
+\end{figure}
+
+\clearpage
+\subsection{Left vs.\ right wrapping}
+
+The \texttt{position} key controls which side the text flows around.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[page=1,width=0.48\textwidth]{example/comparison-left.pdf}
+  \includegraphics[page=1,width=0.48\textwidth]{example/comparison-right.pdf}
+  \caption{Left (default) and right wrapping.}
+\end{figure}
+
+\clearpage
+\subsection{Hang mode}
+
+With \texttt{hang=true} the indent is constant for all lines, equal to the
+widest contour point.  Text is pushed by a fixed amount rather than
+following the exact shape.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[page=1,width=0.48\textwidth]{example/comparison-left-hang.pdf}
+  \includegraphics[page=1,width=0.48\textwidth]{example/comparison-right-hang.pdf}
+  \caption{Hang mode (left and right).}
+\end{figure}
+
+\clearpage
+\subsection{Threshold}
+
+The \texttt{threshold} parameter (0--1) controls how much of the alpha
+channel is considered opaque.  A low value treats more pixels as opaque,
+keeping the contour closer to the visible image edge.  A high value
+lets text come closer to the core of the image.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[page=1,width=0.48\textwidth]{example/params-threshold-03.pdf}
+  \includegraphics[page=1,width=0.48\textwidth]{example/params-threshold-08.pdf}
+  \caption{Threshold 0.3 (left) and 0.8 (right).}
+\end{figure}
+
+\clearpage
+\subsection{Padding}
+
+The \texttt{padding} value (in pixels) adds extra clearance between the
+contour and the text.  This is implemented by dilating the alpha mask
+before contour tracing.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[page=1,width=0.48\textwidth]{example/params-padding-50.pdf}
+  \includegraphics[page=1,width=0.48\textwidth]{example/params-padding-00.pdf}
+  \caption{Padding 50\,px (left) and 0\,px (right).}
+\end{figure}
+
+\clearpage
+\subsection{Limit lines}
+
+The \texttt{lines} key limits wrapping to the first $N$ lines; subsequent
+lines use the full text width.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[page=1,width=0.75\textwidth]{example/lines.pdf}
+  \caption{Wrapping limited to 5 lines.}
+\end{figure}
+
+\clearpage
+\subsection{Width override}
+
+Instead of \texttt{scale}, you can specify an explicit \texttt{width}.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[page=1,width=0.75\textwidth]{example/width.pdf}
+  \caption{Explicit width (\texttt{width=8cm}).}
+\end{figure}
+
+\clearpage
+\subsection{Multiple images}
+
+Multiple \texttt{\string\wrapgraphics} calls can be placed throughout the
+document.  Each call independently traces the contour and generates the
+appropriate \texttt{\string\parshape}.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[page=1,width=0.75\textwidth]{example/multiple.pdf}
+  \caption{Multiple \texttt{\string\wrapgraphics} calls in one document.}
+\end{figure}
+
+\clearpage
+\subsection{Contour overlay}
+
+With the \texttt{contour} package option, the traced contour is drawn in
+red over the image, which is useful for debugging and visualisation.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[page=1,width=0.75\textwidth]{example/verbose.pdf}
+  \caption{Contour overlay enabled (\texttt{contour} option).}
+\end{figure}
+
+\clearpage
+\section{How it works}
+
+\begin{enumerate}
+  \item \texttt{\string\wrapgraphics} saves the image in a box, then
+    calls Lua via \texttt{\string\directlua}.
+  \item Lua determines the contour SVG path and calls
+    \texttt{wrapgraphics.py} (via \texttt{os.execute}) if a cached SVG
+    with matching parameters does not already exist.
+  \item Python extracts the alpha channel, applies threshold and
+    dilation (padding), traces the outer contour with the
+    Moore--Neighbor boundary following algorithm, and writes a
+    \texttt{.shape.svg} file.
+  \item Lua parses the SVG, converts pixel coordinates to
+    (\texttt{pt} / \texttt{sp}), and builds a flat list of
+    \texttt{\string\parshape} entries (indent + width per line).
+  \item The \texttt{\string\parshape} is injected into the TeX stream,
+    and the image is placed as an overlay (\texttt{\string\rlap})
+    so it sits inside the reflowed paragraph without consuming space.
+  \item A \texttt{post\_linebreak\_filter} callback tracks how many
+    lines have been consumed and clears the shape when the image height
+    is covered, ensuring correct behaviour across page breaks.
+\end{enumerate}
+
+\section{Source files}
+
+\begin{description}
+  \item[\texttt{wrapgraphics.sty}]  Package file; defines keys, loads Lua.
+  \item[\texttt{wrapgraphics.lua}]  Lua module; SVG parsing, parshape
+    computation, image placement.
+  \item[\texttt{wrapgraphics.py}]   Python CLI; alpha threshold,
+    dilation, contour tracing (Moore--Neighbor).
+\end{description}
+
+\end{document}
