@@ -41,10 +41,18 @@ function wr_setup_parshape()
     return
   end
   local parts = {}
+  local pi = st.parindent
   for i = 1, n do
     local idx = (st.used + i - 1) * 2 + 1
-    parts[#parts + 1] = st.lines[idx]
-    parts[#parts + 1] = st.lines[idx + 1]
+    local indent = st.lines[idx]
+    local width = st.lines[idx + 1]
+    if i == 1 then
+      indent = indent + pi
+      width = width - pi
+      if width < 0 then width = 0 end
+    end
+    parts[#parts + 1] = indent
+    parts[#parts + 1] = width
   end
   local str = "\\parshape " .. n .. " "
   for _, v in ipairs(parts) do
@@ -279,8 +287,7 @@ function wrapgraphics_run()
 
   local par_n = 1
   local max_indent = 0
-  local pi = tex.parindent / 65536
-  local par_lines_flat = {pi, hsize_pt - pi}
+  local par_lines_flat = {0, hsize_pt}
   for i = 0, num_lines - 1 do
     local boundary = indent_for_line(i)
     if boundary > max_indent then max_indent = boundary end
