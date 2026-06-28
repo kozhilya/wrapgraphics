@@ -1,9 +1,7 @@
 % !TEX program = lualatex
-% !TEX options = --shell-escape
 \documentclass{article}
 
-\usepackage{wrapgraphics}
-\usepackage{lipsum}
+\usepackage{graphicx}
 \usepackage{geometry}
 \usepackage{xcolor}
 \usepackage{hyperref}
@@ -14,6 +12,10 @@
 \geometry{a4paper, margin=2.5cm}
 
 \hypersetup{colorlinks=true, urlcolor=blue, linkcolor=blue}
+
+\newcommand{\preview}[2][]{%
+  \fbox{\includegraphics[#1]{example/#2}}%
+}
 
 \title{The \texttt{wrapgraphics} package\\
   \large Wrap text around an image's alpha contour}
@@ -92,12 +94,9 @@ breaking the text flow.
 Default \texttt{position=left} with \texttt{threshold=0.5},
 \texttt{padding=5}, \texttt{scale=0.20}.
 
-\noindent\wrapgraphics[scale=0.20]{img/tree.png}
-\lipsum[1]
-
 \begin{figure}[h]
   \centering
-  \includegraphics[page=1,width=0.75\textwidth]{basic.pdf}
+  \preview[page=1,width=0.75\textwidth]{basic.pdf}
   \caption{Basic left wrapping.}
 \end{figure}
 
@@ -108,8 +107,8 @@ The \texttt{position} key controls which side the text flows around.
 
 \begin{figure}[h]
   \centering
-  \includegraphics[page=1,width=0.48\textwidth]{comparison-left.pdf}
-  \includegraphics[page=1,width=0.48\textwidth]{comparison-right.pdf}
+  \preview[page=1,width=0.48\textwidth]{comparison-left.pdf}
+  \preview[page=1,width=0.48\textwidth]{comparison-right.pdf}
   \caption{Left (default) and right wrapping.}
 \end{figure}
 
@@ -122,8 +121,8 @@ following the exact shape.
 
 \begin{figure}[h]
   \centering
-  \includegraphics[page=1,width=0.48\textwidth]{comparison-left-hang.pdf}
-  \includegraphics[page=1,width=0.48\textwidth]{comparison-right-hang.pdf}
+  \preview[page=1,width=0.48\textwidth]{comparison-left-hang.pdf}
+  \preview[page=1,width=0.48\textwidth]{comparison-right-hang.pdf}
   \caption{Hang mode (left and right).}
 \end{figure}
 
@@ -137,8 +136,8 @@ lets text come closer to the core of the image.
 
 \begin{figure}[h]
   \centering
-  \includegraphics[page=1,width=0.48\textwidth]{params-threshold-03.pdf}
-  \includegraphics[page=1,width=0.48\textwidth]{params-threshold-08.pdf}
+  \preview[page=1,width=0.48\textwidth]{params-threshold-03.pdf}
+  \preview[page=1,width=0.48\textwidth]{params-threshold-08.pdf}
   \caption{Threshold 0.3 (left) and 0.8 (right).}
 \end{figure}
 
@@ -151,8 +150,8 @@ before contour tracing.
 
 \begin{figure}[h]
   \centering
-  \includegraphics[page=1,width=0.48\textwidth]{params-padding-50.pdf}
-  \includegraphics[page=1,width=0.48\textwidth]{params-padding-00.pdf}
+  \preview[page=1,width=0.48\textwidth]{params-padding-50.pdf}
+  \preview[page=1,width=0.48\textwidth]{params-padding-00.pdf}
   \caption{Padding 50\,px (left) and 0\,px (right).}
 \end{figure}
 
@@ -164,7 +163,7 @@ lines use the full text width.
 
 \begin{figure}[h]
   \centering
-  \includegraphics[page=1,width=0.75\textwidth]{lines.pdf}
+  \preview[page=1,width=0.75\textwidth]{lines.pdf}
   \caption{Wrapping limited to 5 lines.}
 \end{figure}
 
@@ -175,7 +174,7 @@ Instead of \texttt{scale}, you can specify an explicit \texttt{width}.
 
 \begin{figure}[h]
   \centering
-  \includegraphics[page=1,width=0.75\textwidth]{width.pdf}
+  \preview[page=1,width=0.75\textwidth]{width.pdf}
   \caption{Explicit width (\texttt{width=8cm}).}
 \end{figure}
 
@@ -188,7 +187,7 @@ appropriate \texttt{\string\parshape}.
 
 \begin{figure}[h]
   \centering
-  \includegraphics[page=1,width=0.75\textwidth]{multiple.pdf}
+  \preview[page=1,width=0.75\textwidth]{multiple.pdf}
   \caption{Multiple \texttt{\string\wrapgraphics} calls in one document.}
 \end{figure}
 
@@ -200,7 +199,7 @@ red over the image, which is useful for debugging and visualisation.
 
 \begin{figure}[h]
   \centering
-  \includegraphics[page=1,width=0.75\textwidth]{verbose.pdf}
+  \preview[page=1,width=0.75\textwidth]{verbose.pdf}
   \caption{Contour overlay enabled (\texttt{contour} option).}
 \end{figure}
 
