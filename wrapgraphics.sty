@@ -28,7 +28,7 @@
 
 \newsavebox{\wr@imagebox}
 
-\directlua{dofile("wrapgraphics.lua")}
+\directlua{local f=kpse.find_file("wrapgraphics.lua","lua");if f then dofile(f)else dofile("wrapgraphics.lua")end}
 
 \newcommand{\wrapgraphics}[2][]{%
   \setkeys{wr}{#1}%

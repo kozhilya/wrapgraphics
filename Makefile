@@ -1,6 +1,6 @@
 TEX       := lualatex --shell-escape
-SRCDIR    := ..
-EXDIR     := $(SRCDIR)/example
+EXDIR     := example
+
 EXAMPLES  := $(wildcard $(EXDIR)/*.tex)
 PDFS      := $(patsubst %.tex,%.pdf,$(EXAMPLES))
 
@@ -9,8 +9,8 @@ PDFS      := $(patsubst %.tex,%.pdf,$(EXAMPLES))
 all: $(PDFS)
 
 $(EXDIR)/%.pdf: $(EXDIR)/%.tex
-	cd $(SRCDIR) && $(TEX) --output-directory=example example/$*.tex && \
-	  rm -f example/$*.aux example/$*.log example/$*.fls example/$*.fdb_latexmk
+	cd $(EXDIR) && $(TEX) $*.tex && \
+	  rm -f $*.aux $*.log $*.fls $*.fdb_latexmk
 
 clean:
 	rm -f $(EXDIR)/*.log $(EXDIR)/*.aux $(EXDIR)/*.fls $(EXDIR)/*.fdb_latexmk
