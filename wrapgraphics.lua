@@ -177,6 +177,11 @@ function wrapgraphics_run()
 
   local position = tex.wr_position
   if shape.invert and position == "left" then position = "right" end
+  local anchor = tex.wr_anchor or "here"
+  local shiftx_str = tex.wr_shiftx or "0pt"
+  local shifty_str = tex.wr_shifty or "0pt"
+  local shiftx_pt = tonumber(shiftx_str:match("(-?[0-9.]+)")) or 0
+  local shifty_pt = tonumber(shifty_str:match("(-?[0-9.]+)")) or 0
 
   dbg("image=" .. img .. " " .. shape.width .. "x" .. shape.height .. " dpi=" .. shape.dpi)
   dbg("contour: " .. #shape.contour .. " points, invert=" .. tostring(shape.invert))
@@ -235,8 +240,9 @@ function wrapgraphics_run()
 
   local hang_mode = tex.wr_hang == "true"
 
-  local function boundary_x(y_level)
-    local xx, found
+  local function get_boundaries(y_level)
+    local left_x, right_x
+    local found = false
     local n = #shape.contour
     for i = 1, n do
       local p1 = shape.contour[i]
@@ -248,16 +254,63 @@ function wrapgraphics_run()
         if y2 == y1 then t = 0 else t = (y_level - y1) / (y2 - y1) end
         local x_cross = p1[1] * sf + t * (p2[1] * sf - p1[1] * sf)
         if not found then
-          xx = x_cross
+          left_x = x_cross
+          right_x = x_cross
           found = true
-        elseif position == "right" then
-          if x_cross < xx then xx = x_cross end
         else
-          if x_cross > xx then xx = x_cross end
+          if x_cross < left_x then left_x = x_cross end
+          if x_cross > right_x then right_x = x_cross end
         end
       end
     end
-    return xx or 0, found
+    return left_x, right_x, found
+  end
+
+  local function boundary_x(y_level)
+    local left_x, right_x, found = get_boundaries(y_level)
+    if position == "right" then
+      return left_x or 0, found
+    else
+      return right_x or 0, found
+    end
+  end
+
+  local function indent_for_line_middle(i)
+    local y_top = i * bskip_pt
+    local y_bot = (i + 1) * bskip_pt
+    local out_y = (i + 1) * bskip_pt
+    if out_y >= img_h_pt then return 0, hsize_pt end
+    if y_bot <= first_contour_y then return 0, hsize_pt end
+    local s_top = math.max(y_top, first_contour_y)
+    local s_bot = math.min(y_bot, img_h_pt)
+    local left_best, right_best
+    local found = false
+    for s = 1, 3 do
+      local ym = s_top + (s_bot - s_top) * (s - 0.5) / 3
+      local lx, rx, ok = get_boundaries(ym)
+      if ok then
+        if not found then
+          left_best = lx
+          right_best = rx
+          found = true
+        else
+          if lx < left_best then left_best = lx end
+          if rx > right_best then right_best = rx end
+        end
+      end
+    end
+    if not found then
+      local ym = (s_top + s_bot) / 2
+      left_best, right_best, _ = get_boundaries(ym)
+    end
+    local center_offset = (hsize_pt - img_w_pt) / 2
+    local left_indent = center_offset + (left_best or 0)
+    local right_indent = center_offset + (right_best or 0)
+    if left_indent < 0 then left_indent = 0 end
+    if right_indent > hsize_pt then right_indent = hsize_pt end
+    local text_width = right_indent - left_indent
+    if text_width < 0 then text_width = 0 end
+    return left_indent, text_width
   end
 
   local function indent_for_line(i)
@@ -303,24 +356,33 @@ function wrapgraphics_run()
   local par_n = 1
   local max_indent = 0
   local par_lines_flat = {0, hsize_pt}
-  for i = 0, num_lines - 1 do
-    local boundary = indent_for_line(i)
-    if boundary > max_indent then max_indent = boundary end
-    local indent, width
-    if position == "right" then
-      if hang_mode then boundary = max_indent end
-      indent = 0
-      width = boundary
-    else
-      if hang_mode then boundary = max_indent end
-      indent = boundary
-      width = hsize_pt - boundary
+  if position == "middle" then
+    for i = 0, num_lines - 1 do
+      local indent, width = indent_for_line_middle(i)
+      par_lines_flat[#par_lines_flat + 1] = indent
+      par_lines_flat[#par_lines_flat + 1] = width
+      par_n = par_n + 1
     end
-    if width < 0 then width = 0 end
-    if indent < 0 then indent = 0 end
-    par_lines_flat[#par_lines_flat + 1] = indent
-    par_lines_flat[#par_lines_flat + 1] = width
-    par_n = par_n + 1
+  else
+    for i = 0, num_lines - 1 do
+      local boundary = indent_for_line(i)
+      if boundary > max_indent then max_indent = boundary end
+      local indent, width
+      if position == "right" then
+        if hang_mode then boundary = max_indent end
+        indent = 0
+        width = boundary
+      else
+        if hang_mode then boundary = max_indent end
+        indent = boundary
+        width = hsize_pt - boundary
+      end
+      if width < 0 then width = 0 end
+      if indent < 0 then indent = 0 end
+      par_lines_flat[#par_lines_flat + 1] = indent
+      par_lines_flat[#par_lines_flat + 1] = width
+      par_n = par_n + 1
+    end
   end
   -- Sentinel: any line beyond wrapping entries is full width
   par_lines_flat[#par_lines_flat + 1] = 0
@@ -331,10 +393,33 @@ function wrapgraphics_run()
   local first_indent = indent_for_line(0)
   local rpad = img_w_pt - gg_max_x
   local imbox
-  if position == "right" then
-    imbox = "\\rlap{\\smash{\\hbox to \\the\\hsize{\\hfill\\usebox{\\csname wr@imagebox\\endcsname}\\kern -" .. string.format(fmt4, rpad) .. "pt }}}"
+  if position == "middle" then
+    local co = (hsize_pt - img_w_pt) / 2
+    imbox = "\\rlap{\\hskip " .. string.format(fmt4, co + shiftx_pt) .. "pt \\raisebox{" .. string.format(fmt4, shifty_pt) .. "pt}{\\smash{\\usebox{\\csname wr@imagebox\\endcsname}}}}"
+  elseif position == "right" then
+    if anchor == "here" then
+      imbox = "\\rlap{\\raisebox{" .. string.format(fmt4, shifty_pt) .. "pt}{\\smash{\\hbox to \\the\\hsize{\\hfill\\usebox{\\csname wr@imagebox\\endcsname}\\kern -" .. string.format(fmt4, rpad - shiftx_pt) .. "pt }}}}"
+    end
   else
-    imbox = "\\rlap{\\hskip -" .. string.format(fmt4, gg_min_x) .. "pt \\smash{\\usebox{\\csname wr@imagebox\\endcsname}}}"
+    if anchor == "here" then
+      imbox = "\\rlap{\\hskip " .. string.format(fmt4, -gg_min_x + shiftx_pt) .. "pt \\raisebox{" .. string.format(fmt4, shifty_pt) .. "pt}{\\smash{\\usebox{\\csname wr@imagebox\\endcsname}}}}"
+    end
+  end
+
+  if anchor ~= "here" then
+    local hpos
+    if anchor == "nw" or anchor == "sw" then
+      hpos = "\\hskip " .. string.format(fmt4, shiftx_pt) .. "pt"
+    else
+      hpos = "\\hskip \\dimexpr \\textwidth-\\wd\\wr@imagebox" .. string.format("%+.4f", shiftx_pt) .. "pt\\relax"
+    end
+    local vpos
+    if anchor == "nw" or anchor == "ne" then
+      vpos = "\\dimexpr \\pagetotal-\\ht\\wr@imagebox" .. string.format("%+.4f", shifty_pt) .. "pt\\relax"
+    else
+      vpos = "\\dimexpr \\pagetotal-\\textheight" .. string.format("%+.4f", shifty_pt) .. "pt\\relax"
+    end
+    imbox = "\\rlap{" .. hpos .. " \\raisebox{" .. vpos .. "}{\\usebox{\\csname wr@imagebox\\endcsname}}}"
   end
 
   if tex.wr_contour == "true" then
@@ -356,9 +441,14 @@ function wrapgraphics_run()
         .. "\\rlap{\\hbox to \\the\\hsize{\\hfill"
         .. "\\special{pdf: literal direct {q 1 0 0 1 -" .. string.format(cin, img_w_pt) .. " 0 cm " .. pdf_path .. " Q}}"
         .. "\\kern -" .. string.format(fmt4, rpad) .. "pt }}"
+    elseif position == "middle" then
+      local co = (hsize_pt - img_w_pt) / 2
+      imbox = imbox
+        .. "\\rlap{\\hskip " .. string.format(fmt4, co + shiftx_pt)
+        .. "pt \\special{pdf: literal direct {q " .. pdf_path .. " Q}}}"
     else
       imbox = imbox
-        .. "\\rlap{\\hskip -" .. string.format(fmt4, gg_min_x)
+        .. "\\rlap{\\hskip -" .. string.format(fmt4, gg_min_x - shiftx_pt)
         .. "pt \\special{pdf: literal direct {q " .. pdf_path .. " Q}}}"
     end
   end

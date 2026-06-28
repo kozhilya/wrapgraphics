@@ -1,0 +1,19 @@
+% !TEX program = lualatex
+% !TEX options = --shell-escape
+\documentclass{article}
+\usepackage[verbose]{wrapgraphics}
+\usepackage{lipsum}
+\usepackage{geometry}
+\geometry{a4paper, margin=2.5cm}
+
+\begin{document}
+
+\section*{Image anchored to top-right corner}
+
+The image is placed at the top-right corner of the text area using
+\texttt{anchor=ne}.
+
+\wrapgraphics[scale=0.20, anchor=ne]{img/tree.png}
+\lipsum[1-5]
+
+\end{document}

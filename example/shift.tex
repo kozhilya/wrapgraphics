@@ -1,0 +1,19 @@
+% !TEX program = lualatex
+% !TEX options = --shell-escape
+\documentclass{article}
+\usepackage[verbose]{wrapgraphics}
+\usepackage{lipsum}
+\usepackage{geometry}
+\geometry{a4paper, margin=2.5cm}
+
+\begin{document}
+
+\section*{Shifted image}
+
+The image is shifted right by \texttt{20pt} and up by \texttt{10pt}
+using \texttt{shift\_x=20pt, shift\_y=10pt}.
+
+\wrapgraphics[scale=0.32, shift_x=20pt, shift_y=10pt]{img/tree.png}
+\lipsum[1-3]
+
+\end{document}

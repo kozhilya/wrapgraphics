@@ -78,13 +78,26 @@ breaking the text flow.
     \texttt{\string\includegraphics}.
   \item[width] --- Explicit width override (e.g.\ \texttt{width=8cm}).
     Overrides \texttt{scale}.
-  \item[position] (\texttt{left} or \texttt{right}) --- Which side of
-    the image the text wraps around.
+  \item[position] (\texttt{left}, \texttt{right} or \texttt{middle}) ---
+    Which side of the image the text wraps around.
+    \texttt{middle} centres the image and lets text flow between the
+    left and right contour edges.
   \item[hang] (\texttt{true} or \texttt{false}) --- Use a constant
     indent equal to the widest contour point, rather than following the
     exact shape.
   \item[lines] --- Limit wrapping to the first $N$ lines; remaining
     lines use the full text width.
+  \item[$\mathit{shift\_x}$] --- Horizontal offset of the image
+    (e.g.\ \texttt{shift\_x=20pt}).  Positive = right.
+  \item[$\mathit{shift\_y}$] --- Vertical offset of the image
+    (e.g.\ \texttt{shift\_y=10pt}).  Positive = up.
+    Does not affect text layout above the image; useful when the
+    upper part of the image is transparent.
+  \item[anchor] (\texttt{here}, \texttt{nw}, \texttt{ne},
+    \texttt{sw} or \texttt{se}) --- Where to anchor the image.
+    \texttt{here} (default) places it inline at the paragraph start.
+    The compass-point values pin it to the corresponding corner
+    of the text area (north-west = top-left, etc.).
 \end{description}
 
 \section{Examples}
@@ -249,6 +262,45 @@ Right-side wrapping also works in \texttt{twocolumn} mode.
   \centering
   \preview[page=1,width=0.4\textwidth]{twocolumn-right.pdf}
   \caption{Right-side wrapping in two columns.}
+\end{figure}
+
+\clearpage
+\subsection{Image shift}
+
+The \texttt{shift\char`_x} and \texttt{shift\char`_y} keys move the
+image without changing the wrapping contour.
+
+\noindent Note: shifting does not affect text layout above the image;
+it is most useful when the upper part of the image is transparent.
+
+\begin{figure}[h]
+  \centering
+  \preview[page=1,width=0.4\textwidth]{shift.pdf}
+  \caption{Image shifted right by 20\,pt and up by 10\,pt.}
+\end{figure}
+
+\clearpage
+\subsection{Page corner anchors}
+
+The \texttt{anchor} key pins the image to a text-area corner.
+Text wrapping proceeds from that corner.
+
+\begin{figure}[h]
+  \centering
+  \preview[page=1,width=0.4\textwidth]{anchor.pdf}
+  \caption{Image anchored to the top-right corner (\texttt{anchor=ne}).}
+\end{figure}
+
+\clearpage
+\subsection{Wrapping on both sides}
+
+With \texttt{position=middle} the image is centered and text flows
+between the left and right contour boundaries.
+
+\begin{figure}[h]
+  \centering
+  \preview[page=1,width=0.4\textwidth]{wrap-mid.pdf}
+  \caption{Image centred with bilateral text flow.}
 \end{figure}
 
 \clearpage

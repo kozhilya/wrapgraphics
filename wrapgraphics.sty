@@ -11,6 +11,9 @@
 \def\wr@width{}
 \def\wr@hang{false}
 \def\wr@lines{}
+\def\wr@shiftx{0pt}
+\def\wr@shifty{0pt}
+\def\wr@anchor{here}
 \def\wr@verbose{false}
 \DeclareOptionX{verbose}{\def\wr@verbose{true}}
 \def\wr@contour{false}
@@ -29,6 +32,15 @@
 }
 \define@key{wr}{hang}{\def\wr@hang{#1}}
 \define@key{wr}{lines}{\def\wr@lines{#1}}
+\define@key{wr}{shift_x}{%
+  \setlength{\wr@tmpdimen}{#1}%
+  \edef\wr@shiftx{\the\wr@tmpdimen}%
+}
+\define@key{wr}{shift_y}{%
+  \setlength{\wr@tmpdimen}{#1}%
+  \edef\wr@shifty{\the\wr@tmpdimen}%
+}
+\define@key{wr}{anchor}{\def\wr@anchor{#1}}
 
 \newsavebox{\wr@imagebox}
 
@@ -59,6 +71,9 @@
     tex.wr_lines = "\wr@lines"
     tex.wr_verbose = "\wr@verbose"
     tex.wr_contour = "\wr@contour"
+    tex.wr_shiftx = "\wr@shiftx"
+    tex.wr_shifty = "\wr@shifty"
+    tex.wr_anchor = "\wr@anchor"
     wrapgraphics_run()
   }%
   \ignorespaces
