@@ -36,14 +36,8 @@ Place `wrapgraphics.sty` and `wrapgraphics.py` in the same directory as your doc
 ## Building examples
 
 ```sh
-cd build
 make          # compile all examples (PDFs go to example/)
 make clean    # remove build artifacts from example/
-```
-
-Or manually:
-```sh
-cd build && bash build_all.sh
 ```
 
 ## How it works
