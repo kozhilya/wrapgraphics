@@ -306,7 +306,7 @@ function wrapgraphics_run()
   local pagetotal_pt = tex.pagetotal / 65536
   local vsize_pt = tex.vsize / 65536
   local max_fit = math.max(2, math.floor((vsize_pt - pagetotal_pt - 0.5 * bskip_pt) / bskip_pt))
-  num_lines = math.max(0, math.min(num_lines, max_fit - 2))
+  num_lines = math.max(0, math.min(num_lines, max_fit - 1))
 
   local par_n = 1
   local max_indent = 0
