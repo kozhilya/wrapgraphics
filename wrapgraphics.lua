@@ -361,18 +361,10 @@ function wrapgraphics_run()
   local par_n = 0
   local par_lines_flat = {}
   -- Skipped lines are full width
-  local skip_par = 0
   for i = 1, skip_count do
     par_lines_flat[#par_lines_flat + 1] = 0
     par_lines_flat[#par_lines_flat + 1] = hsize_pt
     par_n = par_n + 1
-    skip_par = skip_par + 1
-  end
-  if skip_par == 0 and shifty_pt <= 0 then
-    -- Line 0 is full width (initial sentinel) unless image is raised above baseline
-    par_n = 1
-    par_lines_flat[1] = 0
-    par_lines_flat[2] = hsize_pt
   end
   if position == "middle" then
     for i = 0, num_lines - 1 do
