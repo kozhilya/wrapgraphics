@@ -2,6 +2,7 @@
 \RequirePackage{luatexbase}
 \RequirePackage{graphicx}
 \RequirePackage{xkeyval}
+\RequirePackage{xcolor}
 
 \def\wr@threshold{0.5}
 \def\wr@padding{5}
@@ -16,8 +17,9 @@
 \def\wr@anchor{here}
 \def\wr@verbose{false}
 \DeclareOptionX{verbose}{\def\wr@verbose{true}}
-\def\wr@contour{false}
-\DeclareOptionX{contour}[red]{\def\wr@contour{#1}}
+\def\wr@contour@false{false}
+\def\wr@contour@default{false}
+\DeclareOptionX{contour}[red]{\def\wr@contour@default{#1}}
 \ProcessOptionsX\relax
 
 \newdimen\wr@tmpdimen
@@ -41,14 +43,17 @@
   \edef\wr@shifty{\the\wr@tmpdimen}%
 }
 \define@key{wr}{anchor}{\def\wr@anchor{#1}}
-\define@key{wr}{contour}{\def\wr@contour{#1}}
+\define@key{wr}{contour}{%
+  \def\wr@contour{#1}%
+  \if\wr@contour true\def\wr@contour{red}\fi
+}
 
 \newsavebox{\wr@imagebox}
 
 \directlua{local f=kpse.find_file("wrapgraphics.lua","lua");if f then dofile(f)else dofile("wrapgraphics.lua")end}
 
 \newcommand{\wrapgraphics}[2][]{%
-  \def\wr@contour{false}%
+  \let\wr@contour\wr@contour@default
   \setkeys{wr}{#1}%
   \def\wr@filepath{#2}%
   %
@@ -60,6 +65,10 @@
     \fi
   }%
   \setbox\wr@imagebox=\hbox{\lower\ht\wr@imagebox\box\wr@imagebox}%
+  %
+  \ifx\wr@contour\wr@contour@false\else
+    \colorlet{wr@tmpcolor}{\wr@contour}%
+  \fi
   %
   \directlua{%
     tex.wr_filepath = "\luaescapestring{\wr@filepath}"

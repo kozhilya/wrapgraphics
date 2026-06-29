@@ -160,23 +160,40 @@ image for debugging and visualisation purposes.
 
 This option can be enabled for each image separately.
 The default contour colour is red; other colours can be specified.
-All \texttt{xcolor} named colours are supported.
+All \texttt{xcolor} named colours and any colour defined via
+\texttt{\string\definecolor} are supported.
 
-\exampletable{Contour in red (default)}{contour-red}{verbose.pdf}[
+\exampletable{Contour in red (default)}{contour-red}{contour-red.pdf}[
   The contour is drawn in red when no colour is given.]
-% TODO: Красный контур по умолчанию пропал.
 
 \exampletable{Contour in green}{contour-green}{contour-green.pdf}[
   Green contour via \texttt{contour=green}.]
 
-% TODO:  Лучше даже так: задай цвет через средства xcolor, и используй его
 \exampletable{Contour in orange}{contour-orange}{contour-orange.pdf}[
-  Orange contour via \texttt{contour=orange} (xcolor name).]
+  Orange contour via \texttt{contour=orange}.]
+
+\exampletable{Contour in purple}{contour-purple}{contour-purple.pdf}[
+  Purple contour \texttt{contour=purple} (xcolor predefined name).]
 
 \section{Macro options}
 
 The \mintinline{latex}|\wrapgraphics| command accepts the options listed below,
 passed as a comma-separated key--value list.
+
+\subsection{\texttt{padding} (default: \texttt{5})}\label{macro:padding}
+
+Extra clearance in pixels between the image edge and the wrapped text.
+It is implemented by dilating the alpha mask before contour tracing.
+
+Note that the value of this option is in pixels of the image.  Because of
+it, the same value will produce different results for small and large images.
+
+\exampletable{Padding 0\,px}{padding-00}{params-padding-00.pdf}[
+  No padding: text follows the exact alpha contour.]
+
+\exampletable{Padding 100\,px}{padding-50}{params-padding-50.pdf}[
+  Very large padding pushes text far from the image.]
+% TODO: почему-то правая часть не выступает достаточно сильно. Как будто-то бы упор в какой-то предел?
 
 \subsection{\texttt{position} (default: \texttt{left})}\label{macro:position}
 
@@ -209,20 +226,6 @@ to the core of the image.
   High threshold: text can come closer to the core.]
 
 
-\subsection{\texttt{padding} (default: \texttt{5})}\label{macro:padding}
-
-Extra clearance in pixels between the image edge and the wrapped text.
-It is implemented by dilating the alpha mask before contour tracing.
-
-Note that the value of this option is in pixels of the image.  Because of
-it, the same value will produce different results for small and large images.
-
-\exampletable{Padding 0\,px}{padding-00}{params-padding-00.pdf}[
-  No padding: text follows the exact alpha contour.]
-
-\exampletable{Padding 100\,px}{padding-50}{params-padding-50.pdf}[
-  Very large padding pushes text far from the image.]
-
 \subsection{\texttt{scale} (default: \texttt{1})}\label{macro:scale}
 
 Scale factor passed to \mintinline{latex}|\includegraphics|.  Overridden
@@ -253,8 +256,6 @@ rather than following the exact shape.
 \exampletable{Hang right}{hang-right}{comparison-right-hang.pdf}[
   Right wrapping with a fixed indent.]
 
-% TODO: Добавь больше текста на оба примера
-
 \subsection{\texttt{lines}}\label{macro:lines}
 
 Limit wrapping to the first $N$ lines; subsequent lines use the full
@@ -262,6 +263,11 @@ text width.
 
 \exampletable{\texttt{lines=10}}{lines}{lines.pdf}[
   Wrapping is limited to 10 lines; text below uses full width.]
+
+% TODO: Feature - отрицательное значение снижает количество строк. То есть если изначально рассчитано 100 строк с отступами, и указано `lines=-12`, то с отступами будут 88 строк.
+
+% TODO: Feature - параметр `skip`, который указывает, сколько строк в начале рассчитаной области нужно отображать БЕЗ отступа. Если рассчитано 100 строк, и указан `skip=14`, то первые 14 строк без отступа, а остальные 86 - с отступом.
+% Когда указаны и `lines=-12`, и `skip=14`, то отображаем с отступами всего 76 строк.
 
 
 \subsection{\texttt{shift\_x}, \texttt{shift\_y}}\label{macro:shift}
@@ -317,7 +323,6 @@ appropriate \texttt{\string\parshape}.
 
 \exampletable{Multiple images}{multiple}{multiple.pdf}[
   Two \texttt{\string\wrapgraphics} calls in one document (left then right).]
-% TODO: Убери 3-е изображение. В той части, где первое изображение не закончилось, и уже началось второе, необходимо учитывать ОБА изображения.
 
 \subsection{Large image sticking out}
 
@@ -331,6 +336,8 @@ into the margin.
 \bigskip
 \fbox{\includegraphics[page=2,width=\previewwidth]{example/stickout.pdf}}%
 \captionof{figure}{Page~2: wrapping continues after image height is exceeded.}
+
+% TODO: Сделай другой макрос для примеров с 2 старницами, что бы они отображались рядом друг с другом, а левая часть с кодом была уже
 
 
 \subsection{Two-column layout}
@@ -358,9 +365,15 @@ Right-side wrapping also works in \texttt{twocolumn} mode.
 
 \exampletable{Two-column right}{twocolumn-right}{twocolumn-right.pdf}[
   Right wrapping in two columns with more text.]
-% TODO: Этот пример - изображение вставь где-то с 4-го абзаца, что бы картинка оказалась в правом столбце.
 
-% TODO: Добавь пример с position=middle, когда изображение находится между двух столбцов, и оба столбца огибают текст.
+\subsection{Two-column middle}
+
+In \texttt{twocolumn} mode, \texttt{position=middle} centres the image within
+its column.  The contour is traced on both sides, so text wraps around the
+image from both the left and right within that column.
+
+\exampletable{Two-column middle}{twocolumn-middle}{twocolumn-middle.pdf}[
+  Middle wrapping in the second column of a two-column layout.]
 
 
 \section{Source files}

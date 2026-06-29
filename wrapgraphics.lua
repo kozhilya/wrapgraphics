@@ -451,17 +451,6 @@ function wrapgraphics_run()
 
   local contour_val = tex.wr_contour
   if contour_val ~= "false" and contour_val ~= "" then
-    local r, g, b
-    if contour_val == "true" then
-      r, g, b = 1, 0, 0
-    else
-      local c = xcolor_map[contour_val]
-      if c then
-        r, g, b = c[1], c[2], c[3]
-      else
-        r, g, b = 1, 0, 0
-      end
-    end
     local pdf_cmds = {}
     for i, pt in ipairs(shape.contour) do
       local x = pt[1] * sf
@@ -473,22 +462,33 @@ function wrapgraphics_run()
       end
     end
     pdf_cmds[#pdf_cmds + 1] = "h S"
-    local pdf_path = string.format("0.5 w %.3f %.3f %.3f RG ", r, g, b) .. table.concat(pdf_cmds, " ")
+    local path_only = "0.5 w " .. table.concat(pdf_cmds, " ")
     local cin = string.char(37) .. ".1f"
+    local c = xcolor_map[contour_val]
+    local pdf_path, color_prefix, color_suffix
+    if c then
+      pdf_path = string.format("0.5 w %.3f %.3f %.3f RG ", c[1], c[2], c[3]) .. table.concat(pdf_cmds, " ")
+      color_prefix = ""
+      color_suffix = ""
+    else
+      pdf_path = path_only
+      color_prefix = "{\\color{" .. contour_val .. "}"
+      color_suffix = "}"
+    end
     if position == "right" then
       imbox = imbox
         .. "\\rlap{\\hbox to \\the\\hsize{\\hskip -" .. string.format(fmt4, rlap_indent) .. "pt \\hfill"
-        .. "\\special{pdf: literal direct {q 1 0 0 1 -" .. string.format(cin, img_w_pt) .. " 0 cm " .. pdf_path .. " Q}}"
+        .. color_prefix .. "\\special{pdf: literal direct {q 1 0 0 1 -" .. string.format(cin, img_w_pt) .. " 0 cm " .. pdf_path .. " Q}}" .. color_suffix
         .. "\\kern -" .. string.format(fmt4, rpad + shiftx_pt) .. "pt }}"
     elseif position == "middle" then
       local co = (hsize_pt - img_w_pt) / 2
       imbox = imbox
         .. "\\rlap{\\hskip " .. string.format(fmt4, co + shiftx_pt - rlap_indent)
-        .. "pt \\special{pdf: literal direct {q " .. pdf_path .. " Q}}}"
+        .. "pt " .. color_prefix .. "\\special{pdf: literal direct {q " .. pdf_path .. " Q}}" .. color_suffix .. "}"
     else
       imbox = imbox
         .. "\\rlap{\\hskip -" .. string.format(fmt4, gg_min_x - shiftx_pt + rlap_indent)
-        .. "pt \\special{pdf: literal direct {q " .. pdf_path .. " Q}}}"
+        .. "pt " .. color_prefix .. "\\special{pdf: literal direct {q " .. pdf_path .. " Q}}" .. color_suffix .. "}"
     end
   end
 
