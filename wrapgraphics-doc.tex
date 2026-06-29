@@ -8,6 +8,7 @@
 \usepackage{enumitem}
 \usepackage{caption}
 \usepackage{minted}
+\usepackage{tabularray}
 \usepackage{noto}
 
 \geometry{a4paper, margin=2.5cm}
@@ -19,6 +20,24 @@
 }
 
 \newcommand{\previewwidth}{0.35\textwidth}
+
+\NewDocumentCommand{\exampletable}{m m m O{}}{
+  \bigskip
+  \begin{tblr}{
+    colspec={X[2,l] X[1,c,m]},
+    rowspec={Q[m] Q[m] Q[m]},
+    cell{1,2}={r=3}{valign=m,cmd={\fbox}},
+    hline{1,2,3,4}={1}{},
+    width=\textwidth,
+    colsep=4pt,
+  }
+    {\bfseries #1} & \includegraphics[width=\previewwidth]{example/#3} \\
+    \begin{minipage}{\linewidth}
+    \inputminted[breaklines,breakautoindent=false]{latex}{example/_code-#2.tex}
+    \end{minipage} \\
+    #4 \\
+  \end{tblr}
+}
 
 \title{The \texttt{wrapgraphics} package \\[0.5em]
   \large Wrap text around an image's alpha contour}
@@ -89,7 +108,7 @@ The approach used in this package is similar to the approach in the
 
 
 \subsection{Special note about AI}
-AI agents (namely, Deepseek V4 Flash Free wia OpenCode) were used
+AI agents (namely, Deepseek V4 Flash Free via OpenCode) were used
 to create this package, but later its codebase and examples were manually
 checked by the author so that the package can be maintained without extra tools.
 
@@ -131,30 +150,28 @@ When enabled, additional diagnostic messages are written to the
 terminal and log file.  It can be used for debugging or performance
 analysis.  It should be disabled when compiling large documents.
 
+\exampletable{\texttt{verbose} option}{verbose}{verbose.pdf}[
+  Contour overlay with verbose diagnostic messages.]
+
 \subsection{\texttt{contour}}\label{package:contour}
 
-The \texttt{contour} option draws the traced contour in red over the
+The \texttt{contour} option draws the traced contour over the
 image for debugging and visualisation purposes.
 
 This option can be enabled for each image separately.
+The default contour colour is red; other colours can be specified.
 
-\begin{minipage}{\textwidth}
-  \centering
-  \preview[page=1,width=\previewwidth]{verbose.pdf}
-  \captionof{figure}{Contour overlay in red (\texttt{contour} package option).}
-\end{minipage}
+\exampletable{Contour in red (default)}{contour-red}{verbose.pdf}[
+  The contour is drawn in red when no colour is given.]
 
-\begin{minipage}{\textwidth}
-  \centering
-  \preview[page=1,width=\previewwidth]{contour-green.pdf}
-  \captionof{figure}{Contour overlay in green (\texttt{contour=green}).}
-\end{minipage}
+\exampletable{Contour in green}{contour-green}{contour-green.pdf}[
+  Green contour via \texttt{contour=green}.]
 
 
 \section{Macro options}
 
 The \mintinline{latex}|\wrapgraphics| command accepts the options listed below,
-passed as a comma-separated key–value list.
+passed as a comma-separated key--value list.
 
 \subsection{\texttt{position} (default: \texttt{left})}\label{macro:position}
 
@@ -162,18 +179,14 @@ Which side of the image the text wraps around.  Accepted values are
 \texttt{left}, \texttt{right}, and \texttt{middle}.
 With \texttt{middle} the image is centred and text flows around it.
 
-\begin{minipage}{\textwidth}
-  \centering
-  \preview[page=1,width=\previewwidth]{comparison-left.pdf}
-  \preview[page=1,width=\previewwidth]{comparison-right.pdf}
-  \captionof{figure}{Left (default) and right wrapping.}
-\end{minipage}
+\exampletable{Position \texttt{left} (default)}{left}{basic.pdf}[
+  Text wraps around the left side of the image.]
 
-\begin{minipage}{\textwidth}
-  \centering
-  \preview[page=1,width=\previewwidth]{wrap-mid.pdf}
-  \captionof{figure}{Middle wrapping with image centred.}
-\end{minipage}
+\exampletable{Position \texttt{right}}{right}{right.pdf}[
+  Text wraps around the right side of the image.]
+
+\exampletable{Position \texttt{middle}}{mid}{wrap-mid.pdf}[
+  Image centred; text flows around both sides.]
 
 
 \subsection{\texttt{threshold} (default: \texttt{0.5})}\label{macro:threshold}
@@ -184,12 +197,11 @@ pixels.  A low value treats more pixels as opaque, keeping the contour
 closer to the visible image edge.  A high value lets text come closer
 to the core of the image.
 
-\begin{minipage}{\textwidth}
-  \centering
-  \preview[page=1,width=\previewwidth]{params-threshold-03.pdf}
-  \preview[page=1,width=\previewwidth]{params-threshold-08.pdf}
-  \captionof{figure}{Threshold 0.3 (left) and 0.8 (right).}
-\end{minipage}
+\exampletable{Threshold 0.3}{threshold-03}{params-threshold-03.pdf}[
+  Low threshold: contour is close to the visible edge.]
+
+\exampletable{Threshold 0.8}{threshold-08}{params-threshold-08.pdf}[
+  High threshold: text can come closer to the core.]
 
 
 \subsection{\texttt{padding} (default: \texttt{5})}\label{macro:padding}
@@ -197,15 +209,14 @@ to the core of the image.
 Extra clearance in pixels between the image edge and the wrapped text.
 It is implemented by dilating the alpha mask before contour tracing.
 
-Note that value of this option is pixels of image. Because of it, same
-value will produce different result for small and big images.
+Note that the value of this option is in pixels of the image.  Because of
+it, the same value will produce different results for small and large images.
 
-\begin{minipage}{\textwidth}
-  \centering
-  \preview[page=1,width=\previewwidth]{params-padding-50.pdf}
-  \preview[page=1,width=\previewwidth]{params-padding-00.pdf}
-  \captionof{figure}{Padding 50\,px (left) and 0\,px (right).}
-\end{minipage}
+\exampletable{Padding 50\,px}{padding-50}{params-padding-50.pdf}[
+  Large padding pushes text further from the image.]
+
+\exampletable{Padding 0\,px}{padding-00}{params-padding-00.pdf}[
+  No padding: text follows the exact alpha contour.]
 
 
 \subsection{\texttt{scale} (default: \texttt{1})}\label{macro:scale}
@@ -213,11 +224,8 @@ value will produce different result for small and big images.
 Scale factor passed to \mintinline{latex}|\includegraphics|.  Overridden
 by \texttt{width} if both are specified.
 
-\begin{minipage}{\textwidth}
-  \centering
-  \preview[page=1,width=\previewwidth]{basic.pdf}
-  \captionof{figure}{Default left wrapping with \texttt{scale=0.20}.}
-\end{minipage}
+\exampletable{Scale 0.32}{left}{basic.pdf}[
+  Image scaled to 32\,\% of its natural size.]
 
 
 \subsection{\texttt{width}}\label{macro:width}
@@ -225,11 +233,8 @@ by \texttt{width} if both are specified.
 Explicit width passed to \mintinline{latex}|\includegraphics|,
 e.g.\ \texttt{width=8cm}.  Overrides \texttt{scale}.
 
-\begin{minipage}{\textwidth}
-  \centering
-  \preview[page=1,width=\previewwidth]{width.pdf}
-  \captionof{figure}{Explicit width (\texttt{width=8cm}).}
-\end{minipage}
+\exampletable{Width 8\,cm}{width}{width.pdf}[
+  Image width set to 8\,cm.]
 
 
 \subsection{\texttt{hang} (default: \texttt{false})}\label{macro:hang}
@@ -238,12 +243,11 @@ When set to \texttt{true} the indent becomes constant for all lines,
 equal to the widest contour point.  Text is pushed by a fixed amount
 rather than following the exact shape.
 
-\begin{minipage}{\textwidth}
-  \centering
-  \preview[page=1,width=\previewwidth]{comparison-left-hang.pdf}
-  \preview[page=1,width=\previewwidth]{comparison-right-hang.pdf}
-  \captionof{figure}{Hang mode (left and right).}
-\end{minipage}
+\exampletable{Hang left}{hang-left}{comparison-left-hang.pdf}[
+  Left wrapping with a fixed indent equal to the widest point.]
+
+\exampletable{Hang right}{hang-right}{comparison-right-hang.pdf}[
+  Right wrapping with a fixed indent.]
 
 
 \subsection{\texttt{lines}}\label{macro:lines}
@@ -251,11 +255,8 @@ rather than following the exact shape.
 Limit wrapping to the first $N$ lines; subsequent lines use the full
 text width.
 
-\begin{minipage}{\textwidth}
-  \centering
-  \preview[page=1,width=\previewwidth]{lines.pdf}
-  \captionof{figure}{Wrapping limited to 5 lines.}
-\end{minipage}
+\exampletable{\texttt{lines=5}}{lines}{lines.pdf}[
+  Wrapping is limited to 5 lines; text below uses full width.]
 
 
 \subsection{\texttt{shift\_x}, \texttt{shift\_y}}\label{macro:shift}
@@ -268,23 +269,14 @@ positive \texttt{shift\_y} moves the image up.
 Shifting does not affect text layout above the image;
 it is most useful when the upper part of the image is transparent.
 
-\begin{minipage}{\textwidth}
-  \centering
-  \preview[page=1,width=\previewwidth]{shift.pdf}
-  \captionof{figure}{Image shifted right by 20\,pt and up by 10\,pt.}
-\end{minipage}
+\exampletable{Shift right 20\,pt, up 10\,pt}{shift}{shift.pdf}[
+  Positive shift moves the image right and up.]
 
-\begin{minipage}{\textwidth}
-  \centering
-  \preview[page=1,width=\previewwidth]{shift-negative.pdf}
-  \captionof{figure}{Negative shift (left by 20\,pt, down by 15\,pt).}
-\end{minipage}
+\exampletable{Negative shift}{shift-negative}{shift-negative.pdf}[
+  Shift left by 20\,pt and down by 15\,pt.]
 
-\begin{minipage}{\textwidth}
-  \centering
-  \preview[page=1,width=\previewwidth]{shift-combo.pdf}
-  \captionof{figure}{Right wrapping with \texttt{shift\_x=15pt, shift\_y=5pt}.}
-\end{minipage}
+\exampletable{Shift with right wrapping}{shift-combo}{shift-combo.pdf}[
+  Right wrapping with \texttt{shift\_x=15pt, shift\_y=5pt}.]
 
 
 \subsection{\texttt{anchor} (default: \texttt{here})}\label{macro:anchor}
@@ -294,23 +286,14 @@ inline at the paragraph start.  The compass-point values
 (\texttt{nw}, \texttt{ne}, \texttt{sw}, \texttt{se}) pin it to the
 corresponding corner of the text area (north-west = top-left, etc.).
 
-\begin{minipage}{\textwidth}
-  \centering
-  \preview[page=1,width=\previewwidth]{anchor.pdf}
-  \captionof{figure}{Image anchored to the top-right corner (\texttt{anchor=ne}).}
-\end{minipage}
+\exampletable{Anchor \texttt{ne}}{anchor}{anchor.pdf}[
+  Image anchored to the top-right corner.]
 
-\begin{minipage}{\textwidth}
-  \centering
-  \preview[page=1,width=\previewwidth]{anchor-se.pdf}
-  \captionof{figure}{Image anchored to the bottom-right corner (\texttt{anchor=se}).}
-\end{minipage}
+\exampletable{Anchor \texttt{se}}{anchor-se}{anchor-se.pdf}[
+  Image anchored to the bottom-right corner.]
 
-\begin{minipage}{\textwidth}
-  \centering
-  \preview[page=1,width=\previewwidth]{anchor-shift.pdf}
-  \captionof{figure}{Anchor \texttt{nw} with \texttt{shift\_x=30pt, shift\_y=20pt}.}
-\end{minipage}
+\exampletable{Anchor \texttt{nw} with shift}{anchor-shift}{anchor-shift.pdf}[
+  North-west anchor combined with \texttt{shift\_x=30pt, shift\_y=20pt}.]
 
 
 \section{Examples}
@@ -321,11 +304,8 @@ Multiple \texttt{\string\wrapgraphics} calls can be placed throughout the
 document.  Each call independently traces the contour and generates the
 appropriate \texttt{\string\parshape}.
 
-\begin{minipage}{\textwidth}
-  \centering
-  \preview[page=1,width=\previewwidth]{multiple.pdf}
-  \captionof{figure}{Multiple \texttt{\string\wrapgraphics} calls in one document.}
-\end{minipage}
+\exampletable{Multiple images}{multiple}{multiple.pdf}[
+  Two \texttt{\string\wrapgraphics} calls in one document (left then right).]
 
 
 \subsection{Large image sticking out}
@@ -334,11 +314,9 @@ A large image (wider than \texttt{\string\textwidth}) makes the wrapping
 indentation exceed the text width; the right side of the image protrudes
 into the margin.
 
-\begin{minipage}{\textwidth}
-  \centering
-  \preview[page=1,width=\previewwidth]{stickout.pdf}
-  \captionof{figure}{Large image with wrapping protruding into the margin.}
-\end{minipage}
+\exampletable{Large image}{stickout}{stickout.pdf}[
+  Scale~1 image wider than \texttt{\string\textwidth}; right side protrudes
+  into the margin.]
 
 
 \subsection{Two-column layout}
@@ -346,11 +324,8 @@ into the margin.
 \texttt{\string\wrapgraphics} works in \texttt{twocolumn} mode.
 The wrapping area is sized to the column width.
 
-\begin{minipage}{\textwidth}
-  \centering
-  \preview[page=1,width=\previewwidth]{twocolumn.pdf}
-  \captionof{figure}{Text wrapping in two-column mode.}
-\end{minipage}
+\exampletable{Two-column left}{twocolumn}{twocolumn.pdf}[
+  Left wrapping in a two-column document.]
 
 
 \subsection{Two-column wide}
@@ -358,22 +333,16 @@ The wrapping area is sized to the column width.
 With a large scale (or width) the image becomes wider than one column
 and reaches into the second column.
 
-\begin{minipage}{\textwidth}
-  \centering
-  \preview[page=1,width=\previewwidth]{twocolumn-wide.pdf}
-  \captionof{figure}{Wide image spanning two columns.}
-\end{minipage}
+\exampletable{Two-column wide}{twocolumn-wide}{twocolumn-wide.pdf}[
+  Image spanning two columns in twocolumn mode.]
 
 
 \subsection{Two-column right}
 
 Right-side wrapping also works in \texttt{twocolumn} mode.
 
-\begin{minipage}{\textwidth}
-  \centering
-  \preview[page=1,width=\previewwidth]{twocolumn-right.pdf}
-  \captionof{figure}{Right-side wrapping in two columns.}
-\end{minipage}
+\exampletable{Two-column right}{twocolumn-right}{twocolumn-right.pdf}[
+  Right wrapping in two columns.]
 
 
 \section{Source files}

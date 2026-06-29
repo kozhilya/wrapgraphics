@@ -2,7 +2,7 @@ TEX       := lualatex --shell-escape
 TEX_NOSHELL := lualatex
 EXDIR     := example
 
-EXAMPLE_TEX := $(wildcard $(EXDIR)/*.tex)
+EXAMPLE_TEX := $(wildcard $(EXDIR)/[!_]*.tex)
 EXAMPLE_PDFS := $(patsubst %.tex,%.pdf,$(EXAMPLE_TEX))
 DOC_PDF   := wrapgraphics-doc.pdf
 
