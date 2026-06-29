@@ -13,4 +13,4 @@ __pycache__/
 
 opencode.json
 build/
-_minted/
+_minted/*.toc
