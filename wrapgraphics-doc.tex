@@ -164,10 +164,12 @@ All \texttt{xcolor} named colours are supported.
 
 \exampletable{Contour in red (default)}{contour-red}{verbose.pdf}[
   The contour is drawn in red when no colour is given.]
+% TODO: Красный контур по умолчанию пропал.
 
 \exampletable{Contour in green}{contour-green}{contour-green.pdf}[
   Green contour via \texttt{contour=green}.]
 
+% TODO:  Лучше даже так: задай цвет через средства xcolor, и используй его
 \exampletable{Contour in orange}{contour-orange}{contour-orange.pdf}[
   Orange contour via \texttt{contour=orange} (xcolor name).]
 
@@ -190,6 +192,7 @@ With \texttt{middle} the image is centred and text flows around it.
 
 \exampletable{Position \texttt{middle}}{mid}{wrap-mid.pdf}[
   Image centred; text flows around both sides.]
+% TODO: Текст только справа, должен быть с обоих сторон?
 
 \subsection{\texttt{threshold} (default: \texttt{0.5})}\label{macro:threshold}
 
@@ -217,9 +220,8 @@ it, the same value will produce different results for small and large images.
 \exampletable{Padding 0\,px}{padding-00}{params-padding-00.pdf}[
   No padding: text follows the exact alpha contour.]
 
-\exampletable{Padding 50\,px}{padding-50}{params-padding-50.pdf}[
-  Large padding pushes text further from the image.]
-
+\exampletable{Padding 100\,px}{padding-50}{params-padding-50.pdf}[
+  Very large padding pushes text far from the image.]
 
 \subsection{\texttt{scale} (default: \texttt{1})}\label{macro:scale}
 
@@ -251,14 +253,15 @@ rather than following the exact shape.
 \exampletable{Hang right}{hang-right}{comparison-right-hang.pdf}[
   Right wrapping with a fixed indent.]
 
+% TODO: Добавь больше текста на оба примера
 
 \subsection{\texttt{lines}}\label{macro:lines}
 
 Limit wrapping to the first $N$ lines; subsequent lines use the full
 text width.
 
-\exampletable{\texttt{lines=5}}{lines}{lines.pdf}[
-  Wrapping is limited to 5 lines; text below uses full width.]
+\exampletable{\texttt{lines=10}}{lines}{lines.pdf}[
+  Wrapping is limited to 10 lines; text below uses full width.]
 
 
 \subsection{\texttt{shift\_x}, \texttt{shift\_y}}\label{macro:shift}
@@ -273,9 +276,13 @@ it is most useful when the upper part of the image is transparent.
 
 \exampletable{Shift right 20\,pt, up 10\,pt}{shift}{shift.pdf}[
   Positive shift moves the image right and up.]
+% TODO: Здесь, с `shift_y=10pt` вышло правильнее, чем обычно! 
+% Первая строка абзаца тоже получает отступ, тогда как на других примерах это не так.
+% Это поведение нужно исправить.
 
 \exampletable{Negative shift}{shift-negative}{shift-negative.pdf}[
   Shift left by 40\,pt and down by 30\,pt.]
+% TODO: А на этом примере почему-то не переместился вырез под картинку - а они должны перемещаться вместе.
 
 \exampletable{Shift with right wrapping}{shift-combo}{shift-combo.pdf}[
   Right wrapping with \texttt{shift\_x=15pt, shift\_y=5pt}.]
@@ -287,6 +294,8 @@ Where to anchor the image.  The value \texttt{here} (default) places it
 inline at the paragraph start.  The compass-point values
 (\texttt{nw}, \texttt{ne}, \texttt{sw}, \texttt{se}) pin it to the
 corresponding corner of the text area (north-west = top-left, etc.).
+
+% TODO: Все примеры с якорями сломаны полностью. 
 
 \exampletable{Anchor \texttt{ne}}{anchor}{anchor.pdf}[
   Image anchored to the top-right corner.]
@@ -308,7 +317,7 @@ appropriate \texttt{\string\parshape}.
 
 \exampletable{Multiple images}{multiple}{multiple.pdf}[
   Two \texttt{\string\wrapgraphics} calls in one document (left then right).]
-
+% TODO: Убери 3-е изображение. В той части, где первое изображение не закончилось, и уже началось второе, необходимо учитывать ОБА изображения.
 
 \subsection{Large image sticking out}
 
@@ -317,8 +326,11 @@ indentation exceed the text width; the right side of the image protrudes
 into the margin.
 
 \exampletable{Large image}{stickout}{stickout.pdf}[
-  Scale~1 image wider than \texttt{\string\textwidth}; right side protrudes
+  Image wider than \texttt{\string\textwidth}; right side protrudes
   into the margin.]
+\bigskip
+\fbox{\includegraphics[page=2,width=\previewwidth]{example/stickout.pdf}}%
+\captionof{figure}{Page~2: wrapping continues after image height is exceeded.}
 
 
 \subsection{Two-column layout}
@@ -346,6 +358,7 @@ Right-side wrapping also works in \texttt{twocolumn} mode.
 
 \exampletable{Two-column right}{twocolumn-right}{twocolumn-right.pdf}[
   Right wrapping in two columns with more text.]
+% TODO: Этот пример - изображение вставь где-то с 4-го абзаца, что бы картинка оказалась в правом столбце.
 
 % TODO: Добавь пример с position=middle, когда изображение находится между двух столбцов, и оба столбца огибают текст.
 
