@@ -289,25 +289,36 @@ function wrapgraphics_run()
     if y_bot <= first_contour_y then return 0, hsize_pt end
     local s_top = math.max(y_top, first_contour_y)
     local s_bot = math.min(y_bot, img_h_pt)
-    local best_x, found
+    local best_lx, best_rx, found
     for s = 1, 3 do
       local ym = s_top + (s_bot - s_top) * (s - 0.5) / 3
-      local _, rx, ok = get_boundaries(ym)
+      local lx, rx, ok = get_boundaries(ym)
       if ok then
         found = true
-        if not best_x or rx > best_x then best_x = rx end
+        if not best_lx or lx < best_lx then best_lx = lx end
+        if not best_rx or rx > best_rx then best_rx = rx end
       end
     end
     if not found then
       local ym = (s_top + s_bot) / 2
-      _, best_x, _ = get_boundaries(ym)
+      best_lx, best_rx, _ = get_boundaries(ym)
     end
     local center_offset = (hsize_pt - img_w_pt) / 2
-    local indent = center_offset + (best_x or 0) + shiftx_pt
-    local width = hsize_pt - indent
-    if width < 0 then width = 0 end
-    if indent < 0 then indent = 0 end
-    return indent, width
+    local left_width = center_offset + (best_lx or 0) + shiftx_pt
+    local right_width = hsize_pt - center_offset - (best_rx or 0) - shiftx_pt
+    if left_width >= right_width then
+      local indent = 0
+      local width = left_width
+      if indent < 0 then indent = 0 end
+      if width < 0 then width = 0 end
+      return indent, width
+    else
+      local indent = center_offset + (best_rx or 0) + shiftx_pt
+      local width = right_width
+      if indent < 0 then indent = 0 end
+      if width < 0 then width = 0 end
+      return indent, width
+    end
   end
 
   local function indent_for_line(i)
@@ -408,7 +419,7 @@ function wrapgraphics_run()
     imbox = "\\rlap{\\hskip " .. string.format(fmt4, co + shiftx_pt - rlap_indent) .. "pt \\raisebox{" .. string.format(fmt4, shifty_pt) .. "pt}{\\smash{\\usebox{\\csname wr@imagebox\\endcsname}}}}"
     elseif position == "right" then
       if anchor == "here" then
-        imbox = "\\rlap{\\raisebox{" .. string.format(fmt4, shifty_pt) .. "pt}{\\smash{\\hbox to \\the\\hsize{\\hskip -" .. string.format(fmt4, rlap_indent) .. "pt \\hfill\\usebox{\\csname wr@imagebox\\endcsname}\\kern -" .. string.format(fmt4, rpad + shiftx_pt) .. "pt }}}}"
+        imbox = "\\rlap{\\hskip " .. string.format(fmt4, hsize_pt - gg_max_x + shiftx_pt - rlap_indent) .. "pt \\raisebox{" .. string.format(fmt4, shifty_pt) .. "pt}{\\smash{\\usebox{\\csname wr@imagebox\\endcsname}}}}"
       end
     else
       if anchor == "here" then
