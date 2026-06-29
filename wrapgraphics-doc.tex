@@ -20,6 +20,7 @@
 }
 
 \newcommand{\previewwidth}{0.3\textwidth}
+\newcommand{\pairpreviewwidth}{0.45\textwidth}
 
 \NewDocumentCommand{\exampletable}{m m m O{}}{
   \bigskip
@@ -35,6 +36,33 @@
     % colsep=0pt,
   }
     #1 & \SetCell[r=3]{}\colorbox{white}{\includegraphics[width=\previewwidth]{example/#3}}\\
+    #4 \\
+    \begin{minipage}{\linewidth}
+    \inputminted[breaklines,breakautoindent=false]{latex}{example/_code-#2.tex}
+    \end{minipage} \\
+  \end{tblr}
+}
+
+\NewDocumentCommand{\exampletablepair}{m m m O{}}{
+  \bigskip
+  \noindent
+  \begin{tblr}{
+    colspec={X[1,l] Q[c,m,wd=\pairpreviewwidth]},
+    rowspec={Q[m] Q[m] Q[m]},
+    cells={blue9},
+    cell{1}{1}={blue7,font=\bfseries},
+    cell{1}{2}={valign=m},
+    vlines,hlines,
+    width=\textwidth,
+  }
+    #1 & \SetCell[r=3]{}\colorbox{white}{%
+      \begin{minipage}{\pairpreviewwidth}
+        \centering
+        \includegraphics[width=0.2\textwidth]{example/#3}%
+        \hfill
+        \includegraphics[page=2,width=0.2\textwidth]{example/#3}%
+      \end{minipage}
+    }\\
     #4 \\
     \begin{minipage}{\linewidth}
     \inputminted[breaklines,breakautoindent=false]{latex}{example/_code-#2.tex}
@@ -262,7 +290,7 @@ text width.
 \exampletable{\texttt{lines=10}}{lines}{lines.pdf}[
   Wrapping is limited to 10 lines; text below uses full width.]
 
-\exampletable{\texttt{lines=-12, skip=14}}{lines-skip}{params-lines-skip.pdf}[
+\exampletable{\texttt{lines=-12, skip=14}}{params-lines-skip}{params-lines-skip.pdf}[
   Negative \texttt{lines} reduces total wrapped lines from computed
   value; \texttt{skip} leaves the first N lines without indent.
   Here: 88 wrapped lines\kern-1pt, 14 skipped\kern-1pt, 74 indented.]
@@ -326,14 +354,10 @@ A large image (wider than \texttt{\string\textwidth}) makes the wrapping
 indentation exceed the text width; the right side of the image protrudes
 into the margin.
 
-\exampletable{Large image}{stickout}{stickout.pdf}[
+\exampletablepair{Large image}{stickout}{stickout.pdf}[
   Image wider than \texttt{\string\textwidth}; right side protrudes
-  into the margin.]
-\bigskip
-\fbox{\includegraphics[page=2,width=\previewwidth]{example/stickout.pdf}}%
-\captionof{figure}{Page~2: wrapping continues after image height is exceeded.}
-
-% TODO: Сделай другой макрос для примеров с 2 старницами, что бы они отображались рядом друг с другом, а левая часть с кодом была уже
+  into the margin.  Page~2 shows wrapping continues after the image
+  height is exceeded.]
 
 
 \subsection{Two-column layout}
