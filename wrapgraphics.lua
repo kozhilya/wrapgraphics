@@ -400,18 +400,19 @@ function wrapgraphics_run()
 
   local fmt4 = string.char(37) .. ".4f"
   local first_indent = indent_for_line(0)
+  local rlap_indent = (shifty_pt <= 0) and 0 or first_indent
   local rpad = img_w_pt - gg_max_x
   local imbox
   if position == "middle" then
     local co = (hsize_pt - img_w_pt) / 2
-    imbox = "\\rlap{\\hskip " .. string.format(fmt4, co + shiftx_pt) .. "pt \\raisebox{" .. string.format(fmt4, shifty_pt) .. "pt}{\\smash{\\usebox{\\csname wr@imagebox\\endcsname}}}}"
+    imbox = "\\rlap{\\hskip " .. string.format(fmt4, co + shiftx_pt - rlap_indent) .. "pt \\raisebox{" .. string.format(fmt4, shifty_pt) .. "pt}{\\smash{\\usebox{\\csname wr@imagebox\\endcsname}}}}"
     elseif position == "right" then
       if anchor == "here" then
-        imbox = "\\rlap{\\raisebox{" .. string.format(fmt4, shifty_pt) .. "pt}{\\smash{\\hbox to \\the\\hsize{\\hfill\\usebox{\\csname wr@imagebox\\endcsname}\\kern -" .. string.format(fmt4, rpad + shiftx_pt) .. "pt }}}}"
+        imbox = "\\rlap{\\raisebox{" .. string.format(fmt4, shifty_pt) .. "pt}{\\smash{\\hbox to \\the\\hsize{\\hskip -" .. string.format(fmt4, rlap_indent) .. "pt \\hfill\\usebox{\\csname wr@imagebox\\endcsname}\\kern -" .. string.format(fmt4, rpad + shiftx_pt) .. "pt }}}}"
       end
     else
       if anchor == "here" then
-        imbox = "\\rlap{\\hskip " .. string.format(fmt4, -gg_min_x + shiftx_pt) .. "pt \\raisebox{" .. string.format(fmt4, shifty_pt) .. "pt}{\\smash{\\usebox{\\csname wr@imagebox\\endcsname}}}}"
+        imbox = "\\rlap{\\hskip " .. string.format(fmt4, -gg_min_x + shiftx_pt - rlap_indent) .. "pt \\raisebox{" .. string.format(fmt4, shifty_pt) .. "pt}{\\smash{\\usebox{\\csname wr@imagebox\\endcsname}}}}"
       end
   end
 
@@ -447,17 +448,17 @@ function wrapgraphics_run()
     local cin = string.char(37) .. ".1f"
     if position == "right" then
       imbox = imbox
-        .. "\\rlap{\\hbox to \\the\\hsize{\\hfill"
+        .. "\\rlap{\\hbox to \\the\\hsize{\\hskip -" .. string.format(fmt4, rlap_indent) .. "pt \\hfill"
         .. "\\special{pdf: literal direct {q 1 0 0 1 -" .. string.format(cin, img_w_pt) .. " 0 cm " .. pdf_path .. " Q}}"
         .. "\\kern -" .. string.format(fmt4, rpad + shiftx_pt) .. "pt }}"
     elseif position == "middle" then
       local co = (hsize_pt - img_w_pt) / 2
       imbox = imbox
-        .. "\\rlap{\\hskip " .. string.format(fmt4, co + shiftx_pt)
+        .. "\\rlap{\\hskip " .. string.format(fmt4, co + shiftx_pt - rlap_indent)
         .. "pt \\special{pdf: literal direct {q " .. pdf_path .. " Q}}}"
     else
       imbox = imbox
-        .. "\\rlap{\\hskip -" .. string.format(fmt4, gg_min_x - shiftx_pt)
+        .. "\\rlap{\\hskip -" .. string.format(fmt4, gg_min_x - shiftx_pt + rlap_indent)
         .. "pt \\special{pdf: literal direct {q " .. pdf_path .. " Q}}}"
     end
   end
