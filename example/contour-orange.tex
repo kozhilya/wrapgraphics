@@ -1,0 +1,15 @@
+% !TEX program = lualatex
+% !TEX options = --shell-escape
+\documentclass{article}
+\usepackage{_example_style}
+
+\begin{document}
+
+\section*{Orange contour overlay}
+
+Contour drawn in orange via \texttt{contour=orange}.
+
+\wrapgraphics[scale=0.32, contour=orange, padding=40]{img/tree.png}
+\lipsum[1-5]
+
+\end{document}

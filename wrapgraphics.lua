@@ -432,27 +432,35 @@ function wrapgraphics_run()
     imbox = "\\rlap{" .. hpos .. " \\raisebox{" .. vpos .. "}{\\usebox{\\csname wr@imagebox\\endcsname}}}"
   end
 
+  local xcolor_map = {
+    red       = {1, 0, 0},          green  = {0, 0.5, 0},        blue      = {0, 0, 1},
+    black     = {0, 0, 0},          white  = {1, 1, 1},          yellow    = {1, 1, 0},
+    cyan      = {0, 1, 1},          magenta= {1, 0, 1},          gray      = {0.5, 0.5, 0.5},
+    darkgray  = {0.25, 0.25, 0.25}, lightgray={0.75,0.75,0.75},  brown     = {0.6, 0.2, 0},
+    orange    = {1, 0.55, 0},       lime  = {0, 1, 0},           olive     = {0.5, 0.5, 0},
+    pink      = {1, 0.75, 0.8},     purple= {0.5, 0, 0.5},       teal      = {0, 0.5, 0.5},
+    violet    = {0.58, 0, 0.83},    maroon= {0.5, 0, 0},         navy      = {0, 0, 0.5},
+    aquamarine= {0.5, 1, 0.83},     bisque= {1, 0.89, 0.77},     cerulean  = {0, 0.5, 0.7},
+    cornflowerblue={0.39,0.58,0.93},dandelion={1,0.58,0.13},      fuchsia   = {1, 0, 1},
+    junglegreen={0.42, 0.65, 0},    lavender={0.71, 0.49, 0.86},  limegreen = {0.2, 0.8, 0.2},
+    orchid    = {0.7, 0.32, 0.7},   plum    = {0.5, 0.12, 0.06},  rawienna  = {0.56, 0.36, 0.12},
+    salmon    = {1, 0.5, 0.45},     seagreen={0.18, 0.55, 0.34},  skyblue   = {0.53, 0.81, 0.92},
+    tan       = {0.82, 0.71, 0.55}, thistle = {0.85, 0.75, 0.85}, turquoise = {0.25, 0.88, 0.82},
+    wisteria  = {0.61, 0.44, 0.72},
+  }
+
   local contour_val = tex.wr_contour
   if contour_val ~= "false" and contour_val ~= "" then
     local r, g, b
-    if contour_val == "red" or contour_val == "true" then
+    if contour_val == "true" then
       r, g, b = 1, 0, 0
-    elseif contour_val == "green" then
-      r, g, b = 0, 0.5, 0
-    elseif contour_val == "blue" then
-      r, g, b = 0, 0, 1
-    elseif contour_val == "black" then
-      r, g, b = 0, 0, 0
-    elseif contour_val == "yellow" then
-      r, g, b = 1, 1, 0
-    elseif contour_val == "cyan" then
-      r, g, b = 0, 1, 1
-    elseif contour_val == "magenta" then
-      r, g, b = 1, 0, 1
-    elseif contour_val == "white" then
-      r, g, b = 1, 1, 1
     else
-      r, g, b = 1, 0, 0
+      local c = xcolor_map[contour_val]
+      if c then
+        r, g, b = c[1], c[2], c[3]
+      else
+        r, g, b = 1, 0, 0
+      end
     end
     local pdf_cmds = {}
     for i, pt in ipairs(shape.contour) do

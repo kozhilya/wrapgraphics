@@ -19,23 +19,26 @@
   \fbox{\includegraphics[#1]{example/#2}}%
 }
 
-\newcommand{\previewwidth}{0.35\textwidth}
+\newcommand{\previewwidth}{0.3\textwidth}
 
 \NewDocumentCommand{\exampletable}{m m m O{}}{
   \bigskip
+  \noindent
   \begin{tblr}{
-    colspec={X[2,l] X[1,c,m]},
+    colspec={X[1,l] Q[c,m,wd=\previewwidth]},
     rowspec={Q[m] Q[m] Q[m]},
-    cell{1,2}={r=3}{valign=m,cmd={\fbox}},
-    hline{1,2,3,4}={1}{},
+    cells={blue9},
+    cell{1}{1}={blue7,font=\bfseries},
+    cell{1}{2}={valign=m},%abovespace=0pt,belowspace=0pt,leftspace=0pt},
+    vlines,hlines,
     width=\textwidth,
-    colsep=4pt,
+    % colsep=0pt,
   }
-    {\bfseries #1} & \includegraphics[width=\previewwidth]{example/#3} \\
+    #1 & \SetCell[r=3]{}\colorbox{white}{\includegraphics[width=\previewwidth]{example/#3}}\\
+    #4 \\
     \begin{minipage}{\linewidth}
     \inputminted[breaklines,breakautoindent=false]{latex}{example/_code-#2.tex}
     \end{minipage} \\
-    #4 \\
   \end{tblr}
 }
 
@@ -147,11 +150,8 @@ Supported options are \texttt{verbose} (\ref{package:verbose}) and \texttt{conto
 \subsection{\texttt{verbose}}\label{package:verbose}
 
 When enabled, additional diagnostic messages are written to the
-terminal and log file.  It can be used for debugging or performance
-analysis.  It should be disabled when compiling large documents.
-
-\exampletable{\texttt{verbose} option}{verbose}{verbose.pdf}[
-  Contour overlay with verbose diagnostic messages.]
+terminal and log file.  It only exist for for debugging or performance
+analysis.  Therefore, it should be disabled when compiling large documents.
 
 \subsection{\texttt{contour}}\label{package:contour}
 
@@ -160,6 +160,7 @@ image for debugging and visualisation purposes.
 
 This option can be enabled for each image separately.
 The default contour colour is red; other colours can be specified.
+All \texttt{xcolor} named colours are supported.
 
 \exampletable{Contour in red (default)}{contour-red}{verbose.pdf}[
   The contour is drawn in red when no colour is given.]
@@ -167,6 +168,8 @@ The default contour colour is red; other colours can be specified.
 \exampletable{Contour in green}{contour-green}{contour-green.pdf}[
   Green contour via \texttt{contour=green}.]
 
+\exampletable{Contour in orange}{contour-orange}{contour-orange.pdf}[
+  Orange contour via \texttt{contour=orange} (xcolor name).]
 
 \section{Macro options}
 
@@ -187,7 +190,6 @@ With \texttt{middle} the image is centred and text flows around it.
 
 \exampletable{Position \texttt{middle}}{mid}{wrap-mid.pdf}[
   Image centred; text flows around both sides.]
-
 
 \subsection{\texttt{threshold} (default: \texttt{0.5})}\label{macro:threshold}
 
@@ -212,11 +214,11 @@ It is implemented by dilating the alpha mask before contour tracing.
 Note that the value of this option is in pixels of the image.  Because of
 it, the same value will produce different results for small and large images.
 
-\exampletable{Padding 50\,px}{padding-50}{params-padding-50.pdf}[
-  Large padding pushes text further from the image.]
-
 \exampletable{Padding 0\,px}{padding-00}{params-padding-00.pdf}[
   No padding: text follows the exact alpha contour.]
+
+\exampletable{Padding 50\,px}{padding-50}{params-padding-50.pdf}[
+  Large padding pushes text further from the image.]
 
 
 \subsection{\texttt{scale} (default: \texttt{1})}\label{macro:scale}
@@ -273,7 +275,7 @@ it is most useful when the upper part of the image is transparent.
   Positive shift moves the image right and up.]
 
 \exampletable{Negative shift}{shift-negative}{shift-negative.pdf}[
-  Shift left by 20\,pt and down by 15\,pt.]
+  Shift left by 40\,pt and down by 30\,pt.]
 
 \exampletable{Shift with right wrapping}{shift-combo}{shift-combo.pdf}[
   Right wrapping with \texttt{shift\_x=15pt, shift\_y=5pt}.]
@@ -333,6 +335,7 @@ The wrapping area is sized to the column width.
 With a large scale (or width) the image becomes wider than one column
 and reaches into the second column.
 
+% TODO: Сдвинь картинку чуть влево. Когда картинка шире столбца в какой-то строке, то в этой строке ничего не должно быть написано. 
 \exampletable{Two-column wide}{twocolumn-wide}{twocolumn-wide.pdf}[
   Image spanning two columns in twocolumn mode.]
 
@@ -342,7 +345,9 @@ and reaches into the second column.
 Right-side wrapping also works in \texttt{twocolumn} mode.
 
 \exampletable{Two-column right}{twocolumn-right}{twocolumn-right.pdf}[
-  Right wrapping in two columns.]
+  Right wrapping in two columns with more text.]
+
+% TODO: Добавь пример с position=middle, когда изображение находится между двух столбцов, и оба столбца огибают текст.
 
 
 \section{Source files}
