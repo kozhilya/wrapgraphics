@@ -40,6 +40,8 @@ LANGUAGE_ALIASES = {
 
 MINTED_OPTS = "linenos,breaklines,breakautoindent=false"
 
+MINTED_OPTS_FMT = "linenos,breaklines,breakautoindent=false,firstline={}"
+
 
 def convert_line(line: str, cc: str) -> str:
     """Strip comment prefix from a doc line, preserving indentation."""
@@ -64,25 +66,30 @@ def extract_file(path: str, lang: str) -> str:
     out_parts: list[str] = []
     in_doc = False
     code_buf: list[str] = []
+    code_start = 1
 
     def flush_code():
+        nonlocal code_start
         if not code_buf:
             return
-        out_parts.append(f"\\begin{{minted}}[{MINTED_OPTS}]{{{lang}}}")
+        opts = MINTED_OPTS_FMT.format(code_start)
+        out_parts.append(f"\\begin{{minted}}[{opts}]{{{lang}}}")
         out_parts.append("".join(code_buf).rstrip("\n"))
         out_parts.append("\\end{minted}")
         code_buf.clear()
 
-    for line in src_lines:
+    for linenum, line in enumerate(src_lines, start=1):
         stripped = line.strip()
 
         if stripped == doc_open:
             flush_code()
             in_doc = True
+            code_start = linenum + 1
             continue
 
         if stripped == doc_close:
             in_doc = False
+            code_start = linenum + 1
             continue
 
         if in_doc:
