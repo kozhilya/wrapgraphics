@@ -40,7 +40,7 @@ LANGUAGE_ALIASES = {
 
 MINTED_OPTS = "linenos,breaklines,breakautoindent=false"
 
-MINTED_OPTS_FMT = "linenos,breaklines,breakautoindent=false,firstline={}"
+MINTED_OPTS_FMT = "linenos,breaklines,breakautoindent=false,firstnumber={}"
 
 
 def convert_line(line: str, cc: str) -> str:
@@ -72,9 +72,13 @@ def extract_file(path: str, lang: str) -> str:
         nonlocal code_start
         if not code_buf:
             return
+        content = "".join(code_buf).strip("\n")
+        if not content:
+            code_buf.clear()
+            return
         opts = MINTED_OPTS_FMT.format(code_start)
         out_parts.append(f"\\begin{{minted}}[{opts}]{{{lang}}}")
-        out_parts.append("".join(code_buf).rstrip("\n"))
+        out_parts.append(content)
         out_parts.append("\\end{minted}")
         code_buf.clear()
 
