@@ -241,8 +241,16 @@ function wrapgraphics_run()
   end
   local lines_override = tex.wr_lines
   if lines_override ~= "" then
-    num_lines = tonumber(lines_override)
+    local n = tonumber(lines_override)
+    if n then
+      if n < 0 then
+        num_lines = math.max(0, num_lines + n)
+      else
+        num_lines = n
+      end
+    end
   end
+  local skip_count = tonumber(tex.wr_skip) or 0
 
   local hang_mode = tex.wr_hang == "true"
 
@@ -289,36 +297,25 @@ function wrapgraphics_run()
     if y_bot <= first_contour_y then return 0, hsize_pt end
     local s_top = math.max(y_top, first_contour_y)
     local s_bot = math.min(y_bot, img_h_pt)
-    local best_lx, best_rx, found
+    local best_x, found
     for s = 1, 3 do
       local ym = s_top + (s_bot - s_top) * (s - 0.5) / 3
-      local lx, rx, ok = get_boundaries(ym)
+      local _, rx, ok = get_boundaries(ym)
       if ok then
         found = true
-        if not best_lx or lx < best_lx then best_lx = lx end
-        if not best_rx or rx > best_rx then best_rx = rx end
+        if not best_x or rx > best_x then best_x = rx end
       end
     end
     if not found then
       local ym = (s_top + s_bot) / 2
-      best_lx, best_rx, _ = get_boundaries(ym)
+      _, best_x, _ = get_boundaries(ym)
     end
     local center_offset = (hsize_pt - img_w_pt) / 2
-    local left_width = center_offset + (best_lx or 0) + shiftx_pt
-    local right_width = hsize_pt - center_offset - (best_rx or 0) - shiftx_pt
-    if left_width >= right_width then
-      local indent = 0
-      local width = left_width
-      if indent < 0 then indent = 0 end
-      if width < 0 then width = 0 end
-      return indent, width
-    else
-      local indent = center_offset + (best_rx or 0) + shiftx_pt
-      local width = right_width
-      if indent < 0 then indent = 0 end
-      if width < 0 then width = 0 end
-      return indent, width
-    end
+    local indent = center_offset + (best_x or 0) + shiftx_pt
+    local width = hsize_pt - indent
+    if width < 0 then width = 0 end
+    if indent < 0 then indent = 0 end
+    return indent, width
   end
 
   local function indent_for_line(i)
@@ -363,8 +360,16 @@ function wrapgraphics_run()
 
   local par_n = 0
   local par_lines_flat = {}
-  -- Line 0 is full width (initial sentinel) unless image is raised above baseline
-  if shifty_pt <= 0 then
+  -- Skipped lines are full width
+  local skip_par = 0
+  for i = 1, skip_count do
+    par_lines_flat[#par_lines_flat + 1] = 0
+    par_lines_flat[#par_lines_flat + 1] = hsize_pt
+    par_n = par_n + 1
+    skip_par = skip_par + 1
+  end
+  if skip_par == 0 and shifty_pt <= 0 then
+    -- Line 0 is full width (initial sentinel) unless image is raised above baseline
     par_n = 1
     par_lines_flat[1] = 0
     par_lines_flat[2] = hsize_pt

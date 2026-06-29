@@ -193,7 +193,6 @@ it, the same value will produce different results for small and large images.
 
 \exampletable{Padding 100\,px}{padding-50}{params-padding-50.pdf}[
   Very large padding pushes text far from the image.]
-% TODO: почему-то правая часть не выступает достаточно сильно. Как будто-то бы упор в какой-то предел?
 
 \subsection{\texttt{position} (default: \texttt{left})}\label{macro:position}
 
@@ -208,8 +207,7 @@ With \texttt{middle} the image is centred and text flows around it.
   Text wraps around the right side of the image.]
 
 \exampletable{Position \texttt{middle}}{mid}{wrap-mid.pdf}[
-  Image centred; text flows around both sides.]
-% TODO: Текст только справа, должен быть с обоих сторон?
+  Image centred; text flows on the wider side (left or right).]
 
 \subsection{\texttt{threshold} (default: \texttt{0.5})}\label{macro:threshold}
 
@@ -264,10 +262,10 @@ text width.
 \exampletable{\texttt{lines=10}}{lines}{lines.pdf}[
   Wrapping is limited to 10 lines; text below uses full width.]
 
-% TODO: Feature - отрицательное значение снижает количество строк. То есть если изначально рассчитано 100 строк с отступами, и указано `lines=-12`, то с отступами будут 88 строк.
-
-% TODO: Feature - параметр `skip`, который указывает, сколько строк в начале рассчитаной области нужно отображать БЕЗ отступа. Если рассчитано 100 строк, и указан `skip=14`, то первые 14 строк без отступа, а остальные 86 - с отступом.
-% Когда указаны и `lines=-12`, и `skip=14`, то отображаем с отступами всего 76 строк.
+\exampletable{\texttt{lines=-12, skip=14}}{lines-skip}{params-lines-skip.pdf}[
+  Negative \texttt{lines} reduces total wrapped lines from computed
+  value; \texttt{skip} leaves the first N lines without indent.
+  Here: 88 wrapped lines\kern-1pt, 14 skipped\kern-1pt, 74 indented.]
 
 
 \subsection{\texttt{shift\_x}, \texttt{shift\_y}}\label{macro:shift}

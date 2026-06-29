@@ -12,6 +12,7 @@
 \def\wr@width{}
 \def\wr@hang{false}
 \def\wr@lines{}
+\def\wr@skip{0}
 \def\wr@shiftx{0pt}
 \def\wr@shifty{0pt}
 \def\wr@anchor{here}
@@ -34,6 +35,7 @@
 }
 \define@key{wr}{hang}{\def\wr@hang{#1}}
 \define@key{wr}{lines}{\def\wr@lines{#1}}
+\define@key{wr}{skip}{\def\wr@skip{#1}}
 \define@key{wr}{shift_x}{%
   \setlength{\wr@tmpdimen}{#1}%
   \edef\wr@shiftx{\the\wr@tmpdimen}%
@@ -80,6 +82,7 @@
     tex.wr_width = "\wr@width"
     tex.wr_hang = "\wr@hang"
     tex.wr_lines = "\wr@lines"
+    tex.wr_skip = "\wr@skip"
     tex.wr_verbose = "\wr@verbose"
     tex.wr_contour = "\wr@contour"
     tex.wr_shiftx = "\wr@shiftx"
