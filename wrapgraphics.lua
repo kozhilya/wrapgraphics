@@ -1,6 +1,44 @@
+--[doc]
+-- \texttt{wrapgraphics.lua} --- Lua module for the \textsf{wrapgraphics} package.
+%
+-- This file is loaded by \texttt{wrapgraphics.sty} via
+-- \verb|\directlua{dofile("wrapgraphics.lua")}| at package load time.
+-- Keeping the Lua code in a separate file avoids TeX catcode issues
+-- with \verb|#| (parameter character) and \verb|~| (active character)
+-- that would arise inside \verb|\directlua| within macro definitions.
+%
+-- The module provides two public functions:
+-- \begin{description}
+--   \item[\texttt{wrapgraphics\_run()}] called from
+--         \verb|\wrapgraphics| via \verb|\directlua|; reads TeX
+--         parameters, invokes Python, parses the SVG, computes the
+--         \verb|\parshape|, and places the image.
+--   \item[\texttt{wr\_setup\_parshape()}] called from
+--         \verb|\everypar| on each new paragraph line; injects the
+--         remaining \verb|\parshape| entries when wrapping spans
+--         multiple pages.
+-- \end{description}
+--
+-- State is maintained in the \texttt{wr\_remaining} table, which tracks
+-- how many lines of wrapping have been consumed and how many remain.
+-- A \texttt{post\_linebreak\_filter} callback updates this state after
+-- each paragraph break.
+--[/doc]
 local wr_remaining = nil
 local post_cb_installed = false
 
+--[doc]
+-- \subsection*{Page-break handling}
+--
+-- When the wrapping paragraph spans a page break, the shape must be
+-- split across pages.  \texttt{clear\_on\_page\_change()} detects page
+-- transitions and clears the remaining shape.
+--
+-- \texttt{post\_linebreak\_filter} is a Lua\TeX{} callback that runs
+-- after every paragraph break.  It counts how many lines were typeset
+-- and marks them as consumed.  If the paragraph exceeds the current
+-- page, only the lines that fit on this page are consumed.
+--[/doc]
 local function clear_on_page_change()
   if not wr_remaining then return true end
   local st = wr_remaining
@@ -42,6 +80,18 @@ local function post_linebreak_filter(head, is_display)
   return head
 end
 
+--[doc]
+-- \subsection*{\texttt{wr\_setup\_parshape}}
+--
+-- Called from \verb|\everypar| on every new paragraph line when there
+-- are remaining wrapped lines.  It slices the next chunk of
+-- \verb|\parshape| entries from the stored \texttt{wr\_remaining.lines}
+-- array (which stores indent and width as flat pairs) and injects them
+-- into the \TeX{} stream.
+--
+-- The function checks whether the image height has been fully covered;
+-- if so, it clears the state and subsequent lines use full text width.
+--[/doc]
 function wr_setup_parshape()
   if not wr_remaining then return end
   if clear_on_page_change() then return end
@@ -68,6 +118,33 @@ function wr_setup_parshape()
   tex.print(str)
 end
 
+--[doc]
+-- \subsection*{\texttt{wrapgraphics\_run}}
+--
+-- The heart of the package.  This function is called once per
+-- \verb|\wrapgraphics| invocation from \verb|\directlua|.  The
+-- pipeline is as follows:
+--
+-- \begin{enumerate}
+--   \item Determine the path to \texttt{wrapgraphics.py}
+--         (\texttt{find\_pyscript}).
+--   \item Check whether a cached \texttt{-shape.svg} exists with
+--         matching parameters; if not, run Python (shell-escape).
+--   \item Parse the SVG to extract image dimensions, DPI, and the
+--         contour point list.
+--   \item Compute scaling factor from \texttt{scale} or \texttt{width}.
+--   \item For each text line, intersect the contour with the line's
+--         vertical range to determine the indent (and width for
+--         \texttt{middle} position).
+--   \item Build a flat \verb|\parshape| array and construct the image
+--         placement box (overlay via \verb|\rlap|).
+--   \item Optionally draw the contour as a PDF path overlay.
+--   \item Store remaining lines in \texttt{wr\_remaining} and install
+--         the \texttt{post\_linebreak\_filter} callback.
+--   \item Print the \verb|\parshape| and image overlay into the
+--         \TeX{} stream.
+-- \end{enumerate}
+--[/doc]
 function wrapgraphics_run()
   local verbose_enabled = tex.wr_verbose == "true"
   local function dbg(msg)
@@ -83,6 +160,21 @@ function wrapgraphics_run()
   local pad = tex.wr_padding
   local smo = tex.wr_smooth
 
+  --[doc]
+  -- \paragraph*{Python backend invocation}
+  -- The script \texttt{wrapgraphics.py} is located via
+  -- \texttt{find\_pyscript} which searches the current directory, the
+  -- image's directory, the parent directory, and \texttt{kpsewhich}.
+  --
+  -- Before calling Python, \texttt{svg\_matches\_params} checks whether
+  -- a cached \texttt{-shape.svg} already exists with metadata matching
+  -- the current threshold, padding, and smooth parameters.  If so, the
+  -- expensive Python call is skipped (the SVG is reusable across
+  -- \LaTeX{} compilations).
+  --
+  -- The Python command is run via \texttt{os.execute} (shell-escape),
+  -- producing an SVG with the contour path.
+  --[/doc]
   local function find_pyscript()
     local f = io.open("wrapgraphics.py", "r")
     if f then f:close(); return "wrapgraphics.py" end
@@ -135,6 +227,17 @@ function wrapgraphics_run()
     run_python()
   end
 
+  --[doc]
+  -- \paragraph*{SVG parsing}
+  -- The \texttt{-shape.svg} file is parsed with simple string matching
+  -- (no XML library).  Extracted attributes include image width, height,
+  -- DPI, an invert flag, and the contour point list from the
+  -- \texttt{<path d="...">} attribute.
+  --
+  -- The function runs inside \texttt{pcall} so that a malformed SVG
+  -- produces a user-friendly \LaTeX{} error rather than a cryptic Lua
+  -- backtrace.
+  --[/doc]
   local function parse_svg(path)
     local f = io.open(path, "r")
     if not f then return nil end
@@ -175,6 +278,20 @@ function wrapgraphics_run()
     return
   end
 
+  --[doc]
+  -- \paragraph*{Position and anchor}
+  -- The \texttt{position} key accepts \texttt{left}, \texttt{right},
+  -- or \texttt{middle}.  If the contour was traced with
+  -- \texttt{--invert}, the position is flipped (left \textrightarrow\ right).
+  --
+  -- The \texttt{anchor} key controls image placement: \texttt{here}
+  -- places the image inline at the paragraph start; compass-point values
+  -- (\texttt{nw}, \texttt{ne}, \texttt{sw}, \texttt{se}) pin it to a
+  -- text-area corner.
+  --
+  -- The \texttt{shift\_x} and \texttt{shift\_y} keys provide
+  -- fine-grained positional adjustment.
+  --[/doc]
   local position = tex.wr_position
   if shape.invert and position == "left" then position = "right" end
   local anchor = tex.wr_anchor or "here"
@@ -197,6 +314,14 @@ function wrapgraphics_run()
     return
   end
 
+  --[doc]
+  -- \paragraph*{Scaling}
+  -- The image is scaled from pixels to \texttt{pt} using either a
+  -- user-provided \texttt{scale} factor or an explicit \texttt{width}.
+  -- When \texttt{scale} is used, the DPI from the SVG metadata converts
+  -- pixels to points (\texttt{72.27~pt/inch}).  When \texttt{width} is
+  -- given, the scale is computed as \texttt{width~pt / image~width~px}.
+  --[/doc]
   local scale = tonumber(tex.wr_scale)
   local width_override = tex.wr_width
   if width_override ~= "" then
@@ -254,6 +379,19 @@ function wrapgraphics_run()
 
   local hang_mode = tex.wr_hang == "true"
 
+  --[doc]
+  -- \paragraph*{Contour--line intersection}
+  -- For a given vertical position \texttt{y\_level} (in \texttt{pt}),
+  -- \texttt{get\_boundaries} walks the closed contour polygon and finds
+  -- the leftmost and rightmost x-coordinates where a horizontal line
+  -- at that y-level crosses the contour.  This yields the horizontal
+  -- span of the image at that y-level.
+  --
+  -- \texttt{boundary\_x} returns the relevant boundary for the current
+  -- \texttt{position}: the rightmost x for left-side wrapping (text
+  -- starts after the image) or the leftmost x for right-side wrapping
+  -- (text ends before the image).
+  --[/doc]
   local function get_boundaries(y_level)
     local left_x, right_x
     local found = false
@@ -289,6 +427,25 @@ function wrapgraphics_run()
     end
   end
 
+  --[doc]
+  -- \paragraph*{Line indentation}
+  -- Two functions compute the \texttt{\string\parshape} entries for
+  -- each text line:
+  --
+  -- \begin{description}
+  --   \item[\texttt{indent\_for\_line\_middle}] Used when
+  --         \texttt{position=middle}.  Returns both indent and width
+  --         because the image is centred and text wraps on both sides.
+  --   \item[\texttt{indent\_for\_line}] Used for \texttt{left} and
+  --         \texttt{right} positions.  Returns only the indent (width
+  --         is \texttt{\string\hsize{} - indent}).
+  -- \end{description}
+  --
+  -- For each line, the vertical range is divided into three sample
+  -- points and the widest (left) or narrowest (right) contour boundary
+  -- is taken.  This sub-line sampling produces smoother wrapping than
+  -- a single midpoint check.
+  --[/doc]
   local function indent_for_line_middle(i)
     local y_top = i * bskip_pt + shifty_pt
     local y_bot = (i + 1) * bskip_pt + shifty_pt
@@ -350,9 +507,12 @@ function wrapgraphics_run()
     return (best_x or 0) - gg_min_x + shiftx_pt
   end
 
-  -- Limit wrapping to what fits on the current page
-  -- Image is \smash'ed, so it doesn't contribute vertical space;
-  -- only baselineskip matters for page-fit calculation.
+  --[doc]
+  -- \paragraph*{Page-fit calculation}
+  -- The image is placed via \verb|\smash|, so it contributes no
+  -- vertical space.  The number of wrapped lines is capped so that the
+  -- paragraph does not overflow the current page.
+  --[/doc]
   local pagetotal_pt = tex.pagetotal / 65536
   local vsize_pt = tex.vsize / 65536
   local max_fit = math.max(2, math.floor((vsize_pt - pagetotal_pt - 0.5 * bskip_pt) / bskip_pt))
@@ -401,11 +561,27 @@ function wrapgraphics_run()
       par_n = par_n + 1
     end
   end
-  -- Sentinel: any line beyond wrapping entries is full width
+  --[doc]
+  -- \paragraph*{Sentinel entry}
+  -- A full-width sentinel is appended so that any line beyond the
+  -- wrapped region automatically uses the full text width without
+  -- needing a separate \verb|\parshape| reset.
+  --[/doc]
   par_lines_flat[#par_lines_flat + 1] = 0
   par_lines_flat[#par_lines_flat + 1] = hsize_pt
   par_n = par_n + 1
 
+  --[doc]
+  -- \paragraph*{Image placement}
+  -- The image is placed as a \verb|\rlap| overlay so it sits inside the
+  -- paragraph without consuming horizontal space.  The box is shifted
+  -- by the computed indent and the user-provided \texttt{shift\_x} /
+  -- \texttt{shift\_y}, then \verb|\smash|ed so it contributes no
+  -- vertical height.
+  --
+  -- For \texttt{position=middle}, the image is centred and the contour
+  -- determines the wrap on both sides.
+  --[/doc]
   local fmt4 = string.char(37) .. ".4f"
   local first_indent = indent_for_line(0)
   local rlap_indent = (shifty_pt <= 0) and 0 or first_indent
@@ -424,6 +600,13 @@ function wrapgraphics_run()
       end
   end
 
+  --[doc]
+  -- \paragraph*{Compass-point anchors}
+  -- When \texttt{anchor} is not \texttt{here}, the image is positioned
+  -- relative to the text area corners.  Horizontal and vertical
+  -- positions use \verb|\dimexpr| arithmetic to compute offsets from
+  -- \verb|\textwidth|, \verb|\pagetotal|, and the box dimensions.
+  --[/doc]
   if anchor ~= "here" then
     local hpos
     if anchor == "nw" or anchor == "sw" then
@@ -440,6 +623,15 @@ function wrapgraphics_run()
     imbox = "\\rlap{" .. hpos .. " \\raisebox{" .. vpos .. "}{\\usebox{\\csname wr@imagebox\\endcsname}}}"
   end
 
+  --[doc]
+  -- \paragraph*{Contour overlay}
+  -- When \texttt{contour} is enabled, the traced path is drawn on top
+  -- of the image as a PDF literal stroke.  Named \textsf{xcolor}
+  -- colours are mapped to RGB via \texttt{xcolor\_map}; any other
+  -- colour name is resolved dynamically with \verb|\color|.
+  -- The path uses the same scaling as the image and is placed with a
+  -- coordinate transformation so it aligns exactly.
+  --[/doc]
   local xcolor_map = {
     red       = {1, 0, 0},          green  = {0, 0.5, 0},        blue      = {0, 0, 1},
     black     = {0, 0, 0},          white  = {1, 1, 1},          yellow    = {1, 1, 0},
@@ -517,6 +709,19 @@ function wrapgraphics_run()
   dbg("imbox=" .. imbox)
   dbg("parshape=" .. parshape_str)
 
+  --[doc]
+  -- \paragraph*{State persistence across pages}
+  -- The computed \texttt{parshape} array is stored in
+  -- \texttt{wr\_remaining} along with metadata (position, baselineskip,
+  -- image height, starting page).  The \texttt{post\_linebreak\_filter}
+  -- callback (installed once) tracks how many lines have been typeset
+  -- and cleans up when the paragraph has consumed the full image height
+  -- or crossed a page boundary.
+  --
+  -- Finally, the image box and \verb|\parshape| are written into the
+  -- \TeX{} stream.  An \verb|\everypar| hook ensures that on each
+  -- subsequent paragraph line the remaining shape entries are injected.
+  --[/doc]
   wr_remaining = {
     lines = par_lines_flat,
     total = par_n,

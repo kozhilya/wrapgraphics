@@ -398,12 +398,15 @@ image from both the left and right within that column.
 
 \section{Source files}
 
-\begin{description}
-  \item[\texttt{wrapgraphics.sty}]  Package file; defines keys, loads Lua.
-  \item[\texttt{wrapgraphics.lua}]  Lua module; SVG parsing, parshape
-        computation, image placement.
-  \item[\texttt{wrapgraphics.py}]   Python CLI; alpha threshold,
-        dilation, contour tracing (Moore--Neighbor).
-\end{description}
+The following pages reproduce the source code with inline
+documentation.  The source files use the special comment markers
+\texttt{--[doc]} / \texttt{--[/doc]} (\textsf{.lua}),
+\texttt{\#[doc]} / \texttt{\#[/doc]} (\textsf{.py}), and
+\texttt{\%[doc]} / \texttt{\%[/doc]} (\textsf{.sty}) to delimit
+\LaTeX{} documentation blocks.  These blocks are extracted by
+\texttt{scripts/doc-extract.py} during \texttt{make doc} and
+typeset as a \LaTeX{} fragment (this very section).
+
+\input{wrapgraphics-sources.tex}
 
 \end{document}

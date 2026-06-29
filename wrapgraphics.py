@@ -18,16 +18,67 @@ from PIL import Image, UnidentifiedImageError
 Point = tuple[float, float]
 
 
+#[doc]
+# \texttt{wrapgraphics.py} --- Python CLI for contour tracing.
+#
+# This script is the Python backend of the \textsf{wrapgraphics}
+# package.  It is called by Lua\LaTeX{} via shell-escape
+# (\texttt{os.execute}) and produces an SVG file containing the
+# traced contour.
+#
+# \subsection*{Pipeline}
+# \begin{enumerate}
+#   \item Load the image, extract the alpha channel.
+#   \item Threshold the alpha at a given level (0--1).
+#   \item Dilate the binary mask by \texttt{N} pixels (padding) using
+#         an integral-image method for \texttt{O(n)} performance.
+#   \item Trace the outer contour with the Moore--Neighbor boundary
+#         following algorithm.
+#   \item Simplify with Ramer--Douglas--Peucker (\texttt{epsilon}).
+#   \item Optionally smooth with a Gaussian kernel.
+#   \item Write the result as an SVG with embedded image and contour
+#         path, plus metadata attributes (DPI, threshold, padding,
+#         smooth, invert).
+# \end{enumerate}
+#[/doc]
+
+
+
+#[doc]
+# \subsection*{\texttt{load\_alpha}}
+# Opens the image and returns the alpha channel as a grayscale
+# \texttt{PIL.Image}.  The image is converted to RGBA first so the
+# alpha channel is guaranteed to exist.
+#[/doc]
 def load_alpha(image_path: str) -> Image.Image:
     img = Image.open(image_path).convert("RGBA")
     return img.split()[-1]
 
 
+#[doc]
+# \subsection*{\texttt{threshold}}
+# Converts the alpha channel to a binary mask.  Pixels with an alpha
+# value greater or equal to \texttt{level * 255} are considered opaque.
+#[/doc]
 def threshold(alpha: Image.Image, level: float) -> Image.Image:
     threshold_val = int(level * 255)
     return alpha.point(lambda p: 255 if p >= threshold_val else 0)  # type: ignore[return-value]
 
 
+#[doc]
+# \subsection*{\texttt{dilate\_fast}}
+# Binary dilation by \texttt{N} pixels using an integral-image
+# (summed-area table) approach.  Each pixel is set to white if any
+# pixel within a \texttt{(2N+1) x (2N+1)} window in the original
+# mask is white.
+#
+# This is ``fat'' dilation (not morphological): it is equivalent to
+# a MAX filter, which acts like dilation on a binary image.  The
+# integral image gives \texttt{O(n)} performance regardless of the
+# padding size.
+#
+# Requires NumPy for the integral-image computation.
+#[/doc]
 def dilate_fast(mask: Image.Image, padding: int) -> Image.Image:
     """Binary dilation via integral image (O(n), fast even for large padding)."""
     if padding <= 0:
@@ -47,6 +98,13 @@ def dilate_fast(mask: Image.Image, padding: int) -> Image.Image:
     return Image.fromarray((s > 0).astype(np.uint8) * 255, mode="L")
 
 
+#[doc]
+# \subsection*{\texttt{smooth\_contour}}
+# Applies Gaussian smoothing to the contour point list.  Each point is
+# replaced by a weighted average of its neighbours within a
+# \texttt{2*radius+1} window.  The circular nature of the contour is
+# preserved by wrapping indices modulo the list length.
+#[/doc]
 def smooth_contour(points: list[Point], sigma: float) -> list[Point]:
     if sigma <= 0 or len(points) < 3:
         return points
@@ -67,6 +125,21 @@ def smooth_contour(points: list[Point], sigma: float) -> list[Point]:
     return result
 
 
+#[doc]
+# \subsection*{\texttt{trace\_contour}}
+# The core contour-tracing function.  It implements the Moore--Neighbor
+# boundary following algorithm:
+#
+# \begin{enumerate}
+#   \item Find the first white (opaque) pixel via \texttt{\_find\_start}.
+#   \item Walk the boundary by checking the 8 neighbours in clockwise
+#         order, starting from the previous neighbour direction.
+#   \item Stop when we return to the start pixel.
+# \end{enumerate}
+#
+# The resulting contour is optionally simplified with the
+# Ramer--Douglas--Peucker algorithm.
+#[/doc]
 def trace_contour(
     binary: Image.Image,
     simplify: bool = True,
@@ -121,6 +194,11 @@ def trace_contour(
     return contour
 
 
+#[doc]
+# \subsection*{\texttt{\_find\_start}}
+# Scans the binary image row-by-row and returns the coordinates of the
+# first white (opaque) pixel.  Returns \texttt{None} for an empty mask.
+#[/doc]
 def _find_start(pixels, w, h) -> tuple[int, int] | None:
     for y in range(h):
         for x in range(w):
@@ -129,6 +207,16 @@ def _find_start(pixels, w, h) -> tuple[int, int] | None:
     return None
 
 
+#[doc]
+# \subsection*{\texttt{\_simplify} (Ramer--Douglas--Peucker)}
+# Reduces the number of contour points while preserving the overall
+# shape.  The algorithm recursively subdivides the polyline: if a point
+# is farther than \texttt{epsilon} from the line segment connecting the
+# endpoints, it is kept; otherwise it is discarded.
+#
+# The recursion splits the contour at the furthest point, so sharp
+# corners are retained and straight sections are simplified.
+#[/doc]
 def _simplify(points: list[Point], epsilon: float = 1.0) -> list[Point]:
     if len(points) <= 3:
         return points
@@ -159,6 +247,17 @@ def _simplify(points: list[Point], epsilon: float = 1.0) -> list[Point]:
     return _rdp(points)
 
 
+#[doc]
+# \subsection*{\texttt{write\_svg}}
+# Writes the contour as an SVG file.  The SVG contains:
+# \begin{itemize}
+#   \item The original image embedded via \texttt{<image>}.
+#   \item The contour as a \texttt{<path>} with named colours.
+#   \item Metadata attributes (\texttt{wg-dpi}, \texttt{wg-threshold},
+#         \texttt{wg-padding}, \texttt{wg-smooth}, \texttt{wg-invert})
+#         used by Lua to detect cache hits.
+# \end{itemize}
+#[/doc]
 def write_svg(
     points: list[Point],
     path: str,
@@ -198,6 +297,16 @@ def write_svg(
         f.write("</svg>\n")
 
 
+#[doc]
+# \subsection*{CLI entry points}
+# \texttt{parse\_args} defines the command-line interface using
+# \texttt{argparse}.  The \texttt{main} function orchestrates the full
+# pipeline: load, threshold, dilate, trace, smooth, and write SVG.
+#
+# The \texttt{main} function is also the public Python API --- other
+# scripts can call \texttt{wrapgraphics.main(["--input", ...])} and
+# handle the integer return code.
+#[/doc]
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Trace alpha contour of an image.")
     parser.add_argument("--input", "-i", required=True, help="Input image path")

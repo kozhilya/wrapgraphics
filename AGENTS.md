@@ -23,11 +23,14 @@ LuaLaTeX **only**. Requires `--shell-escape`.
 ## Key files
 
 | File | Role |
-|---|---|
+|---|---|---|
 | `wrapgraphics.py` | CLI entry point. Depends only on `Pillow` |
 | `wrapgraphics.sty` | Package: keys, \savebox, shell-escape to Python, calls Lua |
 | `wrapgraphics.lua` | Lua: SVG parsing, parshape computation, image placement |
 | `demo.tex` | Example document |
+| `wrapgraphics-doc.tex` | Package documentation |
+| `wrapgraphics-sources.tex` | Generated (by `scripts/doc-extract.py`) — documented source code |
+| `scripts/doc-extract.py` | Extracts `--[doc]`/`--[/doc]` blocks from source into `.tex` |
 | `tests/test_contour.py` | Unit tests for contour tracing |
 
 ## Commands
@@ -41,6 +44,9 @@ python3 -m pytest tests/
 
 # Compile demo
 lualatex --shell-escape demo.tex
+
+# Documentation
+make doc
 ```
 
 ## Workflow
@@ -58,3 +64,4 @@ lualatex --shell-escape demo.tex
 - `string.char(37)` is used for `%` in Lua `string.format` because `%` is a comment character in TeX
 - Both `wrapgraphics.sty` and `wrapgraphics.lua` must be in a path kpsewhich can find (same directory or texmf tree)
 - `verbose` is a package option: `\usepackage[verbose]{wrapgraphics}` — writes `[wrapgraphics]` lines to terminal/log
+- Documented source code uses DTX-like markers: `--[doc]`/`--[/doc]` in `.lua`, `#[doc]`/`#[/doc]` in `.py`, `%[doc]`/`%[/doc]` in `.sty`. The script `scripts/doc-extract.py` extracts these into `wrapgraphics-sources.tex` for `\input` in the documentation.

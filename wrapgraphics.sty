@@ -1,9 +1,38 @@
+%[doc]
+% \texttt{wrapgraphics.sty} --- the \LaTeX{} package file.
+%
+% This file provides the user-facing \verb|\wrapgraphics| command.
+% It defines package options and macro keys, saves the image in a box,
+% shell-escapes to Python for contour tracing, and delegates the
+% \verb|\parshape| computation to Lua.
+%
+% \subsection*{Package structure}
+% The package follows the \textsf{minted} pattern:
+% \begin{itemize}
+%   \item \texttt{wrapgraphics.sty} --- here: option/keys/box/\verb|\directlua|
+%   \item \texttt{wrapgraphics.lua} --- SVG parsing, parshape computation
+%   \item \texttt{wrapgraphics.py} --- alpha threshold, contour tracing
+% \end{itemize}
+%
+% \subsection*{Required packages}
+% The package loads \textsf{luatexbase} (for Lua callbacks),
+% \textsf{graphicx} (for \verb|\includegraphics|),
+% \textsf{xkeyval} (for key--value option parsing),
+% and \textsf{xcolor} (for contour colour).
+%[/doc]
 \ProvidesPackage{wrapgraphics}[2024-01-01 v0.2 Wrap text around image alpha contour]
 \RequirePackage{luatexbase}
 \RequirePackage{graphicx}
 \RequirePackage{xkeyval}
 \RequirePackage{xcolor}
 
+%[doc]
+% \subsection*{Default values and package options}
+% Internal macros store the default values for every key.
+% Two package options are recognised:
+% \verb|verbose| enables diagnostic output;
+% \verb|contour| sets the default contour colour.
+%[/doc]
 \def\wr@threshold{0.5}
 \def\wr@padding{5}
 \def\wr@smooth{0}
@@ -23,6 +52,15 @@
 \DeclareOptionX{contour}[red]{\def\wr@contour@default{#1}}
 \ProcessOptionsX\relax
 
+%[doc]
+% \subsection*{Macro keys}
+% All keys use the \texttt{wr} family (\textsf{xkeyval} syntax).
+% Most are stored as plain macros; \texttt{width} and
+% \texttt{shift\_x}/\texttt{shift\_y} evaluate \LaTeX{} lengths
+% so that units like \texttt{cm} or \texttt{pt} are properly parsed.
+% The \texttt{contour} key accepts any \textsf{xcolor} name and
+% maps \texttt{true} to red as a shortcut.
+%[/doc]
 \newdimen\wr@tmpdimen
 \define@key{wr}{threshold}{\def\wr@threshold{#1}}
 \define@key{wr}{padding}{\def\wr@padding{#1}}
@@ -50,10 +88,39 @@
   \if\wr@contour true\def\wr@contour{red}\fi
 }
 
+%[doc]
+% \subsection*{Image box and Lua module}
+% The image is saved in \verb|\wr@imagebox| so that its dimensions
+% are available when the paragraph reflows.
+%
+% The Lua module \texttt{wrapgraphics.lua} is loaded via
+% \verb|\directlua| using \verb|kpse.find_file| for path resolution
+% (following the \textsf{minted} approach).  A separate \texttt{.lua}
+% file avoids TeX catcode issues with \verb|#| and \verb|~| inside
+% \verb|\directlua|.
+%[/doc]
 \newsavebox{\wr@imagebox}
 
 \directlua{local f=kpse.find_file("wrapgraphics.lua","lua");if f then dofile(f)else dofile("wrapgraphics.lua")end}
 
+%[doc]
+% \subsection*{\texttt{\string\wrapgraphics}}
+% The user-facing command.  Its first argument is a comma-separated
+% list of key--value options; the second is the image file path.
+%
+% \begin{enumerate}
+%   \item Keys from the first argument override the defaults via
+%         \verb|\setkeys{wr}|.
+%   \item The image is saved in \verb|\wr@imagebox| with the requested
+%         \texttt{scale} or \texttt{width}.
+%   \item The box is lowered to its own height so the reference point
+%         sits at the bottom-left corner.
+%   \item A contour colour is set up if requested.
+%   \item Lua is called via \verb|\directlua|: all parameters are
+%         written to \texttt{tex.*} globals and
+%         \texttt{wrapgraphics\_run()} is invoked.
+% \end{enumerate}
+%[/doc]
 \newcommand{\wrapgraphics}[2][]{%
   \let\wr@contour\wr@contour@default
   \setkeys{wr}{#1}%

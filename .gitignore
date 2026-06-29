@@ -15,3 +15,4 @@ opencode.json
 build/
 _minted/
 *.toc
+wrapgraphics-sources.tex
