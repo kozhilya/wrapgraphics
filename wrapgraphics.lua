@@ -419,9 +419,9 @@ function wrapgraphics_run()
   if anchor ~= "here" then
     local hpos
     if anchor == "nw" or anchor == "sw" then
-      hpos = "\\hskip " .. string.format(fmt4, shiftx_pt) .. "pt"
+      hpos = "\\hskip " .. string.format(fmt4, shiftx_pt - rlap_indent) .. "pt"
     else
-      hpos = "\\hskip \\dimexpr \\textwidth-\\wd\\wr@imagebox" .. string.format("%+.4f", shiftx_pt) .. "pt\\relax"
+      hpos = "\\hskip \\dimexpr \\textwidth-\\wd\\wr@imagebox" .. string.format("%+.4f", shiftx_pt - rlap_indent) .. "pt\\relax"
     end
     local vpos
     if anchor == "nw" or anchor == "ne" then
@@ -432,7 +432,28 @@ function wrapgraphics_run()
     imbox = "\\rlap{" .. hpos .. " \\raisebox{" .. vpos .. "}{\\usebox{\\csname wr@imagebox\\endcsname}}}"
   end
 
-  if tex.wr_contour == "true" then
+  local contour_val = tex.wr_contour
+  if contour_val ~= "false" and contour_val ~= "" then
+    local r, g, b
+    if contour_val == "red" or contour_val == "true" then
+      r, g, b = 1, 0, 0
+    elseif contour_val == "green" then
+      r, g, b = 0, 0.5, 0
+    elseif contour_val == "blue" then
+      r, g, b = 0, 0, 1
+    elseif contour_val == "black" then
+      r, g, b = 0, 0, 0
+    elseif contour_val == "yellow" then
+      r, g, b = 1, 1, 0
+    elseif contour_val == "cyan" then
+      r, g, b = 0, 1, 1
+    elseif contour_val == "magenta" then
+      r, g, b = 1, 0, 1
+    elseif contour_val == "white" then
+      r, g, b = 1, 1, 1
+    else
+      r, g, b = 1, 0, 0
+    end
     local pdf_cmds = {}
     for i, pt in ipairs(shape.contour) do
       local x = pt[1] * sf
@@ -444,7 +465,7 @@ function wrapgraphics_run()
       end
     end
     pdf_cmds[#pdf_cmds + 1] = "h S"
-    local pdf_path = "0.5 w 1 0 0 RG " .. table.concat(pdf_cmds, " ")
+    local pdf_path = string.format("0.5 w %.3f %.3f %.3f RG ", r, g, b) .. table.concat(pdf_cmds, " ")
     local cin = string.char(37) .. ".1f"
     if position == "right" then
       imbox = imbox

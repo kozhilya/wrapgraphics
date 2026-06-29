@@ -17,7 +17,7 @@
 \def\wr@verbose{false}
 \DeclareOptionX{verbose}{\def\wr@verbose{true}}
 \def\wr@contour{false}
-\DeclareOptionX{contour}{\def\wr@contour{true}}
+\DeclareOptionX{contour}[red]{\def\wr@contour{#1}}
 \ProcessOptionsX\relax
 
 \newdimen\wr@tmpdimen
@@ -41,12 +41,14 @@
   \edef\wr@shifty{\the\wr@tmpdimen}%
 }
 \define@key{wr}{anchor}{\def\wr@anchor{#1}}
+\define@key{wr}{contour}{\def\wr@contour{#1}}
 
 \newsavebox{\wr@imagebox}
 
 \directlua{local f=kpse.find_file("wrapgraphics.lua","lua");if f then dofile(f)else dofile("wrapgraphics.lua")end}
 
 \newcommand{\wrapgraphics}[2][]{%
+  \def\wr@contour{false}%
   \setkeys{wr}{#1}%
   \def\wr@filepath{#2}%
   %

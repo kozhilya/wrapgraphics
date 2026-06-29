@@ -141,7 +141,13 @@ This option can be enabled for each image separately.
 \begin{minipage}{\textwidth}
   \centering
   \preview[page=1,width=\previewwidth]{verbose.pdf}
-  \captionof{figure}{Contour overlay enabled (\texttt{contour} option).}
+  \captionof{figure}{Contour overlay in red (\texttt{contour} package option).}
+\end{minipage}
+
+\begin{minipage}{\textwidth}
+  \centering
+  \preview[page=1,width=\previewwidth]{contour-green.pdf}
+  \captionof{figure}{Contour overlay in green (\texttt{contour=green}).}
 \end{minipage}
 
 
@@ -161,6 +167,12 @@ With \texttt{middle} the image is centred and text flows around it.
   \preview[page=1,width=\previewwidth]{comparison-left.pdf}
   \preview[page=1,width=\previewwidth]{comparison-right.pdf}
   \captionof{figure}{Left (default) and right wrapping.}
+\end{minipage}
+
+\begin{minipage}{\textwidth}
+  \centering
+  \preview[page=1,width=\previewwidth]{wrap-mid.pdf}
+  \captionof{figure}{Middle wrapping with image centred.}
 \end{minipage}
 
 
@@ -262,6 +274,18 @@ it is most useful when the upper part of the image is transparent.
   \captionof{figure}{Image shifted right by 20\,pt and up by 10\,pt.}
 \end{minipage}
 
+\begin{minipage}{\textwidth}
+  \centering
+  \preview[page=1,width=\previewwidth]{shift-negative.pdf}
+  \captionof{figure}{Negative shift (left by 20\,pt, down by 15\,pt).}
+\end{minipage}
+
+\begin{minipage}{\textwidth}
+  \centering
+  \preview[page=1,width=\previewwidth]{shift-combo.pdf}
+  \captionof{figure}{Right wrapping with \texttt{shift\_x=15pt, shift\_y=5pt}.}
+\end{minipage}
+
 
 \subsection{\texttt{anchor} (default: \texttt{here})}\label{macro:anchor}
 
@@ -274,6 +298,18 @@ corresponding corner of the text area (north-west = top-left, etc.).
   \centering
   \preview[page=1,width=\previewwidth]{anchor.pdf}
   \captionof{figure}{Image anchored to the top-right corner (\texttt{anchor=ne}).}
+\end{minipage}
+
+\begin{minipage}{\textwidth}
+  \centering
+  \preview[page=1,width=\previewwidth]{anchor-se.pdf}
+  \captionof{figure}{Image anchored to the bottom-right corner (\texttt{anchor=se}).}
+\end{minipage}
+
+\begin{minipage}{\textwidth}
+  \centering
+  \preview[page=1,width=\previewwidth]{anchor-shift.pdf}
+  \captionof{figure}{Anchor \texttt{nw} with \texttt{shift\_x=30pt, shift\_y=20pt}.}
 \end{minipage}
 
 
