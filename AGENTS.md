@@ -51,7 +51,7 @@ make doc
 
 ## Workflow
 
-- **Commit after every iteration of changes** — each logical batch of edits (fix, feature, refactor) must be committed before starting the next one. Use descriptive commit messages in Russian or English matching the project style.
+- **Commit after every iteration of changes** — each logical batch of edits (fix, feature, refactor) must be committed before starting the next one. Use descriptive commit messages in English.
 
 ## Important details
 
