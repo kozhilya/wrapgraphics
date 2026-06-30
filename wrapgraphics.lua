@@ -466,11 +466,10 @@ end
 local function wr_indent_for_line_middle(i, geom, contour, sf)
   local y_top = i * geom.bskip_pt + geom.shifty_pt
   local y_bot = (i + 1) * geom.bskip_pt + geom.shifty_pt
-  local out_y = (i + 1) * geom.bskip_pt + geom.shifty_pt
-  if out_y >= geom.img_h_pt then return 0, geom.hsize_pt end
+  if y_top >= geom.gg_max_y_pt then return 0, geom.hsize_pt end
   if y_bot <= geom.first_contour_y then return 0, geom.hsize_pt end
   local s_top = math.max(y_top, geom.first_contour_y)
-  local s_bot = math.min(y_bot, geom.img_h_pt)
+  local s_bot = math.min(y_bot, geom.gg_max_y_pt)
   local best_x, found
   for s = 1, 3 do
     local ym = s_top + (s_bot - s_top) * (s - 0.5) / 3
@@ -516,14 +515,13 @@ end
 local function wr_indent_for_line(i, position, geom, contour, sf)
   local y_top = i * geom.bskip_pt + geom.shifty_pt
   local y_bot = (i + 1) * geom.bskip_pt + geom.shifty_pt
-  local out_y = (i + 1) * geom.bskip_pt + geom.shifty_pt
-  if out_y >= geom.img_h_pt then
+  if y_top >= geom.gg_max_y_pt then
     if position == "right" then return geom.hsize_pt end
     return 0
   end
   if y_bot <= geom.first_contour_y then return 0 end
   local s_top = math.max(y_top, geom.first_contour_y)
-  local s_bot = math.min(y_bot, geom.img_h_pt)
+  local s_bot = math.min(y_bot, geom.gg_max_y_pt)
   local best_x, found
   for s = 1, 3 do
     local ym = s_top + (s_bot - s_top) * (s - 0.5) / 3
@@ -861,11 +859,12 @@ function wrapgraphics_run()
     first_contour_y = first_contour_y,
     gg_min_x      = bounds.min_x_pt,
     gg_max_x      = bounds.max_x_pt,
+    gg_max_y_pt   = bounds.max_y_pt,
     shiftx_pt     = shiftx_pt,
     shifty_pt     = shifty_pt,
   }
 
-  local effective_h = img_h_pt - shifty_pt
+  local effective_h = bounds.max_y_pt - shifty_pt
   local num_lines
   if effective_h <= 0 then
     num_lines = 0
@@ -915,7 +914,7 @@ function wrapgraphics_run()
     total = par_n,
     used = 0,
     bskip = bskip_pt,
-    img_h = img_h_pt,
+    img_h = bounds.max_y_pt,
     pos = position,
     parindent = tex.parindent / 65536,
     start_page = status and status.page or 0,
