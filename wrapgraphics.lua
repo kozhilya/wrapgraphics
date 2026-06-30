@@ -77,6 +77,18 @@ local function post_linebreak_filter(head, is_display)
   local nlines = 0
   for line in node.traverse_id(node.id("hlist"), head) do
     nlines = nlines + 1
+    -- Clear lines where parshape width <= 0 (contour wider than column)
+    local line_idx = st.used + nlines - 1
+    if line_idx < st.total then
+      local pw = st.lines[line_idx * 2 + 2]
+      if pw and pw <= 0 then
+        local empty = node.new("hlist")
+        empty.width = 0
+        node.slide(empty)
+        node.flush_list(line.list)
+        line.list = empty
+      end
+    end
   end
 
   local pt = tex.pagetotal / 65536
