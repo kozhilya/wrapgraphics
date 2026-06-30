@@ -464,8 +464,8 @@ end
 -- \textbf{Output:} \texttt{indent}, \texttt{width} (numbers in points)
 --[/doc]
 local function wr_indent_for_line_middle(i, geom, contour, sf)
-  local y_top = i * geom.bskip_pt + geom.shifty_pt
-  local y_bot = (i + 1) * geom.bskip_pt + geom.shifty_pt
+  local y_top = i * geom.bskip_pt - geom.shifty_pt
+  local y_bot = (i + 1) * geom.bskip_pt - geom.shifty_pt
   if y_top >= geom.gg_max_y_pt then return 0, geom.hsize_pt end
   if y_bot <= geom.first_contour_y then return 0, geom.hsize_pt end
   local s_top = math.max(y_top, geom.first_contour_y)
@@ -513,8 +513,8 @@ end
 -- \textbf{Output:} boundary offset (number in points)
 --[/doc]
 local function wr_indent_for_line(i, position, geom, contour, sf)
-  local y_top = i * geom.bskip_pt + geom.shifty_pt
-  local y_bot = (i + 1) * geom.bskip_pt + geom.shifty_pt
+  local y_top = i * geom.bskip_pt - geom.shifty_pt
+  local y_bot = (i + 1) * geom.bskip_pt - geom.shifty_pt
   if y_top >= geom.gg_max_y_pt then
     if position == "right" then return geom.hsize_pt end
     return 0
@@ -662,7 +662,7 @@ end
 local function wr_build_image_box(position, anchor, geom, contour, sf)
   local fmt4 = "%.4f"
   local first_indent = wr_indent_for_line(0, position, geom, contour, sf)
-  local rlap_indent = (geom.shifty_pt <= 0) and 0 or first_indent
+  local rlap_indent = (geom.shifty_pt >= 0) and 0 or first_indent
 
   local hpos
   if anchor == "here" then
@@ -683,11 +683,11 @@ local function wr_build_image_box(position, anchor, geom, contour, sf)
   local vpos
   if anchor == "here" then
     -- vpos = "\\raisebox{" .. string.format(fmt4, geom.shifty_pt) .. "pt}{\\smash{\\usebox{\\csname wr@imagebox\\endcsname}}}"
-    vpos = "\\raisebox{" .. string.format(fmt4, geom.shifty_pt + geom.bskip_pt) .. "pt}{\\smash{\\usebox{\\csname wr@imagebox\\endcsname}}}"
+    vpos = "\\raisebox{" .. string.format(fmt4, geom.bskip_pt - geom.shifty_pt) .. "pt}{\\smash{\\usebox{\\csname wr@imagebox\\endcsname}}}"
   elseif anchor == "nw" or anchor == "ne" then
-    vpos = "\\raisebox{\\dimexpr \\pagetotal-\\ht\\wr@imagebox" .. string.format("%+.4f", geom.shifty_pt) .. "pt\\relax}{\\usebox{\\csname wr@imagebox\\endcsname}}"
+    vpos = "\\raisebox{\\dimexpr \\pagetotal-\\ht\\wr@imagebox" .. string.format("%+.4f", -geom.shifty_pt) .. "pt\\relax}{\\usebox{\\csname wr@imagebox\\endcsname}}"
   else
-    vpos = "\\raisebox{\\dimexpr \\pagetotal-\\textheight" .. string.format("%+.4f", geom.shifty_pt) .. "pt\\relax}{\\usebox{\\csname wr@imagebox\\endcsname}}"
+    vpos = "\\raisebox{\\dimexpr \\pagetotal-\\textheight" .. string.format("%+.4f", -geom.shifty_pt) .. "pt\\relax}{\\usebox{\\csname wr@imagebox\\endcsname}}"
   end
 
   return "\\rlap{" .. hpos .. " " .. vpos .. "}"
@@ -722,7 +722,7 @@ end
 local function wr_build_contour_overlay(imbox, contour, sf, position, contour_val, geom)
   local fmt4 = "%.4f"
   local first_indent = wr_indent_for_line(0, position, geom, contour, sf)
-  local rlap_indent = (geom.shifty_pt <= 0) and 0 or first_indent
+  local rlap_indent = (geom.shifty_pt >= 0) and 0 or first_indent
 
   local pdf_cmds = {}
   for i, pt in ipairs(contour) do
@@ -749,7 +749,7 @@ local function wr_build_contour_overlay(imbox, contour, sf, position, contour_va
     hpos = "\\hskip " .. string.format(fmt4, -geom.gg_min_x + geom.shiftx_pt - first_indent) .. "pt"
   end
 
-  local vpos = "\\raisebox{" .. string.format(fmt4, geom.shifty_pt + geom.bskip_pt) .. "pt}{\\smash{"
+  local vpos = "\\raisebox{" .. string.format(fmt4, geom.bskip_pt - geom.shifty_pt) .. "pt}{\\smash{"
 
   imbox = imbox
     .. "\\rlap{" .. hpos .. " " .. vpos
@@ -864,7 +864,7 @@ function wrapgraphics_run()
     shifty_pt     = shifty_pt,
   }
 
-  local effective_h = bounds.max_y_pt - shifty_pt
+  local effective_h = bounds.max_y_pt + shifty_pt
   local num_lines
   if effective_h <= 0 then
     num_lines = 0
@@ -914,7 +914,7 @@ function wrapgraphics_run()
     total = par_n,
     used = 0,
     bskip = bskip_pt,
-    img_h = bounds.max_y_pt,
+    img_h = bounds.max_y_pt + shifty_pt,
     pos = position,
     parindent = tex.parindent / 65536,
     start_page = status and status.page or 0,
