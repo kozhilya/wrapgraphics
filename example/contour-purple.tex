@@ -6,11 +6,13 @@
 \usepackage{geometry}
 \geometry{a4paper, margin=2.5cm}
 
+\definecolor{customPurple}{HTML}{FF37D0}
+
 \begin{document}
 
-Contour in purple via \texttt{contour=purple}.
+Contour in purple via \texttt{contour=customPurple}.
 
-\wrapgraphics[padding=40, scale=0.32, contour=purple]{img/tree.png}
+\wrapgraphics[padding=40, width=0.6\textwidth, contour=customPurple]{img/tree.png}
 \lipsum[1-5]
 
 \end{document}
