@@ -694,34 +694,17 @@ local function wr_build_image_box(position, anchor, geom, contour, sf)
   return "\\rlap{" .. hpos .. " " .. vpos .. "}"
 end
 
-local xcolor_map = {
-  red       = {1, 0, 0},          green  = {0, 0.5, 0},        blue      = {0, 0, 1},
-  black     = {0, 0, 0},          white  = {1, 1, 1},          yellow    = {1, 1, 0},
-  cyan      = {0, 1, 1},          magenta= {1, 0, 1},          gray      = {0.5, 0.5, 0.5},
-  darkgray  = {0.25, 0.25, 0.25}, lightgray={0.75,0.75,0.75},  brown     = {0.6, 0.2, 0},
-  orange    = {1, 0.55, 0},       lime  = {0, 1, 0},           olive     = {0.5, 0.5, 0},
-  pink      = {1, 0.75, 0.8},     purple= {0.5, 0, 0.5},       teal      = {0, 0.5, 0.5},
-  violet    = {0.58, 0, 0.83},    maroon= {0.5, 0, 0},         navy      = {0, 0, 0.5},
-  aquamarine= {0.5, 1, 0.83},     bisque= {1, 0.89, 0.77},     cerulean  = {0, 0.5, 0.7},
-  cornflowerblue={0.39,0.58,0.93},dandelion={1,0.58,0.13},      fuchsia   = {1, 0, 1},
-  junglegreen={0.42, 0.65, 0},    lavender={0.71, 0.49, 0.86},  limegreen = {0.2, 0.8, 0.2},
-  orchid    = {0.7, 0.32, 0.7},   plum    = {0.5, 0.12, 0.06},  rawienna  = {0.56, 0.36, 0.12},
-  salmon    = {1, 0.5, 0.45},     seagreen={0.18, 0.55, 0.34},  skyblue   = {0.53, 0.81, 0.92},
-  tan       = {0.82, 0.71, 0.55}, thistle = {0.85, 0.75, 0.85}, turquoise = {0.25, 0.88, 0.82},
-  wisteria  = {0.61, 0.44, 0.72},
-}
-
 --[doc]
 -- \subsubsection*{\texttt{wr\_build\_contour\_overlay}}
 --
 -- Appends a PDF literal stroke of the contour path to the image
 -- placement command. When \texttt{contour} is enabled, the traced
--- path is drawn on top of the image.
+-- path is drawn on top of the image. The colour is resolved via
+-- xcolor's \verb|\color| command, so any named colour defined with
+-- \verb|\definecolor| or any built-in xcolor name works.
 -- 
--- Named \textsf{xcolor} colours are mapped to RGB via
--- \texttt{xcolor\_map}; any other colour name is resolved dynamically
--- with \verb|\color|. The path uses the same scaling $s$ as the image
--- and is placed with a $y$-flip so it aligns exactly.
+-- The path uses the same scaling $s$ as the image and is placed
+-- with a $y$-flip so it aligns exactly.
 -- 
 -- \textbf{Input:}
 -- \begin{itemize}
@@ -751,18 +734,9 @@ local function wr_build_contour_overlay(imbox, contour, sf, position, contour_va
     end
   end
   pdf_cmds[#pdf_cmds + 1] = "h S"
-  local path_only = "0.5 w " .. table.concat(pdf_cmds, " ")
-  local c = xcolor_map[contour_val]
-  local pdf_path, color_prefix, color_suffix
-  if c then
-    pdf_path = string.format("0.5 w %.3f %.3f %.3f RG ", c[1], c[2], c[3]) .. table.concat(pdf_cmds, " ")
-    color_prefix = ""
-    color_suffix = ""
-  else
-    pdf_path = path_only
-    color_prefix = "{\\color{" .. contour_val .. "}"
-    color_suffix = "}"
-  end
+  local pdf_path = "0.5 w " .. table.concat(pdf_cmds, " ")
+  local color_prefix = "{\\color{" .. contour_val .. "}"
+  local color_suffix = "}"
   if position == "right" then
     imbox = imbox
       .. "\\rlap{\\hbox to \\the\\hsize{\\hskip -" .. string.format(fmt4, rlap_indent) .. "pt \\hfill"
