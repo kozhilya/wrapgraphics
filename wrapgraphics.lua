@@ -22,8 +22,11 @@
 -- A \texttt{post\_linebreak\_filter} callback updates this state after
 -- each paragraph break.
 --[/doc]
-local wr_remaining = nil
+local wr_remaining = nil  -- { images = { {..}, {..} }, bskip, parindent, start_page }
 local post_cb_installed = false
+
+-- Forward declarations (defined later, used by callbacks)
+local wr_indent_for_line
 
 --[doc]
 -- Module-level verbose flag. Set at the start of \texttt{wrapgraphics\_run()}
@@ -60,9 +63,9 @@ end
 --[/doc]
 local function clear_on_page_change()
   if not wr_remaining then return true end
-  local st = wr_remaining
   local cur = status and status.page or 0
-  if st.start_page and cur > st.start_page then
+  if not wr_remaining.start_page then return false end
+  if cur > wr_remaining.start_page then
     wr_remaining = nil
     return true
   end
@@ -73,21 +76,39 @@ local function post_linebreak_filter(head, is_display)
   if not wr_remaining then return head end
   if clear_on_page_change() then return head end
   local st = wr_remaining
-
+  if not st.images or #st.images == 0 then
+    wr_remaining = nil
+    return head
+  end
   local nlines = 0
   for line in node.traverse_id(node.id("hlist"), head) do
     nlines = nlines + 1
-    -- Clear lines where parshape width <= 0 (contour wider than column)
-    local line_idx = st.used + nlines - 1
-    if line_idx < st.total then
-      local pw = st.lines[line_idx * 2 + 2]
-      if pw and pw <= 0 then
-        local empty = node.new("hlist")
-        empty.width = 0
-        node.slide(empty)
-        node.flush_list(line.list)
-        line.list = empty
+    -- Determine combined indent/width for this line and clear if zero-width
+    local combined_indent = 0
+    local combined_right = st.images[1] and st.images[1].geom.hsize_pt or 0
+    for _, img in ipairs(st.images) do
+      local line_idx = img.used + nlines - 1
+      if line_idx < img.total then
+        local ok, ii = pcall(wr_indent_for_line, line_idx, img.pos, img.geom, img.contour, img.sf)
+        if not ok then ii = 0 end
+        if img.pos == "right" then
+          if ii < combined_right then combined_right = ii end
+        else
+          if ii > combined_indent then combined_indent = ii end
+        end
       end
+    end
+    if combined_indent > combined_right then combined_indent = combined_right end
+    if combined_indent ~= combined_indent or combined_indent > 1e6 then combined_indent = 0 end
+    local width = combined_right - combined_indent
+    if width ~= width or width > 1e6 then width = 0 end
+    width = math.max(0, width)
+    if width <= 0 then
+      local empty = node.new("hlist")
+      empty.width = 0
+      node.slide(empty)
+      node.flush_list(line.list)
+      line.list = empty
     end
   end
 
@@ -97,14 +118,27 @@ local function post_linebreak_filter(head, is_display)
 
   if pt + para_h > vs then
     local on_page = math.max(1, math.floor((vs - pt) / st.bskip))
-    st.used = st.used + on_page
+    for _, img in ipairs(st.images) do
+      img.used = img.used + on_page
+    end
     wr_remaining = nil
     return head
   end
 
-  st.used = st.used + nlines
-  if st.used >= st.total or st.used * st.bskip >= st.img_h then
+  for _, img in ipairs(st.images) do
+    img.used = img.used + nlines
+  end
+  -- Remove finished images
+  local alive = {}
+  for _, img in ipairs(st.images) do
+    if img.used < img.total and img.used * st.bskip < img.img_h then
+      alive[#alive + 1] = img
+    end
+  end
+  if #alive == 0 then
     wr_remaining = nil
+  else
+    st.images = alive
   end
   return head
 end
@@ -128,21 +162,51 @@ function wr_setup_parshape()
   if not wr_remaining then return end
   if clear_on_page_change() then return end
   local st = wr_remaining
-  if st.used * st.bskip >= st.img_h then
+  if not st.images or #st.images == 0 then
     wr_remaining = nil
     return
   end
-  local n = st.total - st.used
-  if n <= 0 then
+  -- Compute remaining lines: max of all images
+  local max_remaining = 0
+  for _, img in ipairs(st.images) do
+    local rem = img.total - img.used
+    if rem > max_remaining then max_remaining = rem end
+  end
+  if max_remaining <= 0 then
     wr_remaining = nil
     return
   end
+  -- Build combined parshape for all remaining lines
+  local hsize = st.images[1].geom.hsize_pt
   local parts = {}
-  for i = 1, n do
-    local idx = (st.used + i - 1) * 2 + 1
-    parts[#parts + 1] = st.lines[idx]
-    parts[#parts + 1] = st.lines[idx + 1]
+  for i = 1, max_remaining do
+    local line_idx = i - 1  -- 0-based index for wr_indent_for_line
+    local combined_indent = 0
+    local combined_right = hsize
+    for _, img in ipairs(st.images) do
+      local idx = img.used + line_idx
+      if idx < img.total then
+        local ok, ii = pcall(wr_indent_for_line, idx, img.pos, img.geom, img.contour, img.sf)
+        if not ok then ii = 0 end
+        if img.pos == "right" then
+          if ii < combined_right then combined_right = ii end
+        else
+          if ii > combined_indent then combined_indent = ii end
+        end
+      end
+    end
+    if combined_indent > combined_right then combined_indent = combined_right end
+    local width = math.max(0, combined_right - combined_indent)
+    -- Guard against NaN/Inf
+    if width ~= width or width > 1e6 then width = 0 end
+    if combined_indent ~= combined_indent or combined_indent > 1e6 then combined_indent = 0 end
+    parts[#parts + 1] = combined_indent
+    parts[#parts + 1] = width
   end
+  -- Sentinel
+  parts[#parts + 1] = 0
+  parts[#parts + 1] = hsize
+  local n = #parts // 2
   local str = "\\parshape " .. n .. " "
   for _, v in ipairs(parts) do
     str = str .. string.format("%.1f", v) .. "pt "
@@ -524,7 +588,7 @@ end
 -- \end{itemize}
 -- \textbf{Output:} boundary offset (number in points)
 --[/doc]
-local function wr_indent_for_line(i, position, geom, contour, sf)
+wr_indent_for_line = function(i, position, geom, contour, sf)
   local y_top = i * geom.bskip_pt - geom.shifty_pt
   local y_bot = (i + 1) * geom.bskip_pt - geom.shifty_pt
   if y_top >= geom.gg_max_y_pt then
@@ -926,22 +990,36 @@ function wrapgraphics_run()
   dbg("imbox=" .. imbox)
   dbg("parshape=" .. parshape_str)
 
-  wr_remaining = {
-    lines = par_lines_flat,
-    total = par_n,
-    used = 0,
-    bskip = bskip_pt,
-    img_h = bounds.max_y_pt + shifty_pt,
-    pos = position,
-    parindent = tex.parindent / 65536,
-    start_page = status and status.page or 0,
+  local img_state = {
+    contour  = shape.contour,
+    sf       = sf,
+    geom     = geom,
+    pos      = position,
+    total    = par_n,
+    used     = 0,
+    img_h    = bounds.max_y_pt + shifty_pt,
   }
 
-  if not post_cb_installed then
-    luatexbase.add_to_callback("post_linebreak_filter", post_linebreak_filter, "wrapgraphics")
-    post_cb_installed = true
-  end
+  if wr_remaining then
+    -- Add to existing multi-image state
+    wr_remaining.images[#wr_remaining.images + 1] = img_state
+    -- Inject the second image placement (appended to current paragraph)
+    tex.print("\\rlap{\\hskip 0pt \\smash{\\raisebox{0pt}{\\usebox{\\csname wr@imagebox\\endcsname}}}}")
+  else
+    -- First image — create new state
+    wr_remaining = {
+      images    = { img_state },
+      bskip     = bskip_pt,
+      parindent = tex.parindent / 65536,
+      start_page = status and status.page or 0,
+    }
 
-  tex.print("\\noindent" .. imbox .. parshape_str)
-  tex.print("\\everypar{\\directlua{wr_setup_parshape()}}")
+    if not post_cb_installed then
+      luatexbase.add_to_callback("post_linebreak_filter", post_linebreak_filter, "wrapgraphics")
+      post_cb_installed = true
+    end
+
+    tex.print("\\noindent" .. imbox .. parshape_str)
+    tex.print("\\everypar{\\directlua{wr_setup_parshape()}}")
+  end
 end
