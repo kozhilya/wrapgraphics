@@ -581,13 +581,15 @@ local function wr_build_parshape(skip_count, hsize_pt, position, num_lines, hang
   local par_lines_flat = {}
 
   for i = 1, skip_count do
+    -- Full-width lines before wrapping (skip parameter)
     par_lines_flat[#par_lines_flat + 1] = 0
     par_lines_flat[#par_lines_flat + 1] = hsize_pt
     par_n = par_n + 1
   end
 
   if position == "middle" then
-    for i = 0, num_lines - 1 do
+    -- Wrapped lines start from skip_count (skip lines are already placed)
+    for i = skip_count, num_lines - 1 do
       local indent, width = wr_indent_for_line_middle(i, geom, contour, sf)
       par_lines_flat[#par_lines_flat + 1] = indent
       par_lines_flat[#par_lines_flat + 1] = width
@@ -596,10 +598,11 @@ local function wr_build_parshape(skip_count, hsize_pt, position, num_lines, hang
   else
     local max_indent = 0
     local min_indent = 1e308
-    for i = 0, num_lines - 1 do
+    for i = skip_count, num_lines - 1 do
       local boundary = wr_indent_for_line(i, position, geom, contour, sf)
       local indent, width
       if position == "right" then
+        -- Right: text flows on the left, indent=0, width = boundary
         if hang_mode then
           if boundary < min_indent then min_indent = boundary end
           boundary = min_indent
@@ -607,6 +610,7 @@ local function wr_build_parshape(skip_count, hsize_pt, position, num_lines, hang
         indent = 0
         width = boundary
       else
+        -- Left: text flows on the right, indent = boundary
         if hang_mode then
           if boundary > max_indent then max_indent = boundary end
           boundary = max_indent
@@ -622,6 +626,7 @@ local function wr_build_parshape(skip_count, hsize_pt, position, num_lines, hang
     end
   end
 
+  -- Sentinel: full-width line after wrapping ends
   par_lines_flat[#par_lines_flat + 1] = 0
   par_lines_flat[#par_lines_flat + 1] = hsize_pt
   par_n = par_n + 1
