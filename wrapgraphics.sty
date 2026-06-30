@@ -58,6 +58,11 @@
 % Most are stored as plain macros; \texttt{width} and
 % \texttt{shift\_x}/\texttt{shift\_y} evaluate \LaTeX{} lengths
 % so that units like \texttt{cm} or \texttt{pt} are properly parsed.
+% A positive \texttt{shift\_y} moves the image down (into the
+% wrapping paragraph); a negative \texttt{shift\_y} moves it up,
+% overlaying the text of the preceding paragraph (the wrapping
+% shape only affects lines from the \texttt{\string\wrapgraphics}
+% command onward).
 % The \texttt{contour} key accepts any \textsf{xcolor} name and
 % maps \texttt{true} to red as a shortcut.
 %[/doc]

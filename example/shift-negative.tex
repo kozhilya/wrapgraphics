@@ -7,8 +7,11 @@
 
 \section*{Negative shift}
 
-The image is shifted left by 20\,pt and down by 15\,pt using
-\texttt{shift\_x=-20pt, shift\_y=-15pt}.
+The image is shifted left by 40\,pt and up by 30\,pt using
+\texttt{shift\_x=-40pt, shift\_y=-30pt}.  A negative \texttt{shift\_y} moves the
+image upward; it overlays the text of the preceding paragraph because the
+wrapping shape only covers lines from the \texttt{\string\wrapgraphics}
+command onward.
 
 \wrapgraphics[padding=40, width=0.6\textwidth, shift_x=-40pt, shift_y=-30pt]{img/tree.png}
 \lipsum[1-5]
