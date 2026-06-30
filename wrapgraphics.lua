@@ -591,10 +591,7 @@ local function wr_build_parshape(skip_count, hsize_pt, position, num_lines, hang
     -- Wrapped lines start from skip_count (skip lines are already placed)
     for i = skip_count, num_lines - 1 do
       local indent, width = wr_indent_for_line_middle(i, geom, contour, sf)
-      if width <= 0 then
-        indent = 0
-        width = hsize_pt
-      end
+      if width <= 0 then break end
       par_lines_flat[#par_lines_flat + 1] = indent
       par_lines_flat[#par_lines_flat + 1] = width
       par_n = par_n + 1
@@ -624,10 +621,7 @@ local function wr_build_parshape(skip_count, hsize_pt, position, num_lines, hang
       end
       if width < 0 then width = 0 end
       if indent < 0 then indent = 0 end
-      if width <= 0 then
-        indent = 0
-        width = hsize_pt
-      end
+      if width <= 0 then break end
       par_lines_flat[#par_lines_flat + 1] = indent
       par_lines_flat[#par_lines_flat + 1] = width
       par_n = par_n + 1
