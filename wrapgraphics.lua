@@ -683,7 +683,7 @@ local function wr_build_image_box(position, anchor, geom, contour, sf)
   local vpos
   if anchor == "here" then
     -- vpos = "\\raisebox{" .. string.format(fmt4, geom.shifty_pt) .. "pt}{\\smash{\\usebox{\\csname wr@imagebox\\endcsname}}}"
-    vpos = "\\raisebox{" .. string.format(fmt4, geom.bskip_pt - geom.shifty_pt) .. "pt}{\\smash{\\usebox{\\csname wr@imagebox\\endcsname}}}"
+    vpos = "\\smash{\\raisebox{" .. string.format(fmt4, geom.bskip_pt - geom.shifty_pt) .. "pt}{\\usebox{\\csname wr@imagebox\\endcsname}}}"
   elseif anchor == "nw" or anchor == "ne" then
     vpos = "\\raisebox{\\dimexpr \\pagetotal-\\ht\\wr@imagebox" .. string.format("%+.4f", -geom.shifty_pt) .. "pt\\relax}{\\usebox{\\csname wr@imagebox\\endcsname}}"
   else
@@ -749,7 +749,7 @@ local function wr_build_contour_overlay(imbox, contour, sf, position, contour_va
     hpos = "\\hskip " .. string.format(fmt4, -geom.gg_min_x + geom.shiftx_pt - first_indent) .. "pt"
   end
 
-  local vpos = "\\raisebox{" .. string.format(fmt4, geom.bskip_pt - geom.shifty_pt) .. "pt}{\\smash{"
+  local vpos = "\\smash{\\raisebox{" .. string.format(fmt4, geom.bskip_pt - geom.shifty_pt) .. "pt}{"
 
   imbox = imbox
     .. "\\rlap{" .. hpos .. " " .. vpos
