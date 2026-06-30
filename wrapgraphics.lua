@@ -662,7 +662,7 @@ end
 -- image placement
 --[/doc]
 local function wr_build_image_box(position, anchor, geom, contour, sf)
-  local fmt4 = string.char(37) .. ".4f"
+  local fmt4 = "%.4f"
   local first_indent = wr_indent_for_line(0, position, geom, contour, sf)
   local rlap_indent = (geom.shifty_pt <= 0) and 0 or first_indent
 
@@ -684,7 +684,8 @@ local function wr_build_image_box(position, anchor, geom, contour, sf)
 
   local vpos
   if anchor == "here" then
-    vpos = "\\raisebox{" .. string.format(fmt4, geom.shifty_pt) .. "pt}{\\smash{\\usebox{\\csname wr@imagebox\\endcsname}}}"
+    -- vpos = "\\raisebox{" .. string.format(fmt4, geom.shifty_pt) .. "pt}{\\smash{\\usebox{\\csname wr@imagebox\\endcsname}}}"
+    vpos = "\\raisebox{" .. string.format(fmt4, geom.shifty_pt + geom.bskip_pt) .. "pt}{\\smash{\\usebox{\\csname wr@imagebox\\endcsname}}}"
   elseif anchor == "nw" or anchor == "ne" then
     vpos = "\\raisebox{\\dimexpr \\pagetotal-\\ht\\wr@imagebox" .. string.format("%+.4f", geom.shifty_pt) .. "pt\\relax}{\\usebox{\\csname wr@imagebox\\endcsname}}"
   else
@@ -715,13 +716,15 @@ end
 -- \item \texttt{geom} --- geometry table
 -- \end{itemize}
 -- \textbf{Output:} modified \texttt{imbox} with the PDF overlay appended
+--
+-- The horizontal and vertical placement uses the same formulas as
+-- \texttt{wr\_build\_image\_box} so the contour stroke aligns exactly
+-- with the image.
 --[/doc]
 local function wr_build_contour_overlay(imbox, contour, sf, position, contour_val, geom)
-  local fmt4 = string.char(37) .. ".4f"
-  local cin = string.char(37) .. ".1f"
+  local fmt4 = "%.4f"
   local first_indent = wr_indent_for_line(0, position, geom, contour, sf)
   local rlap_indent = (geom.shifty_pt <= 0) and 0 or first_indent
-  local rpad = geom.img_w_pt - geom.gg_max_x
 
   local pdf_cmds = {}
   for i, pt in ipairs(contour) do
@@ -737,21 +740,23 @@ local function wr_build_contour_overlay(imbox, contour, sf, position, contour_va
   local pdf_path = "0.5 w " .. table.concat(pdf_cmds, " ")
   local color_prefix = "{\\color{" .. contour_val .. "}"
   local color_suffix = "}"
-  if position == "right" then
-    imbox = imbox
-      .. "\\rlap{\\hbox to \\the\\hsize{\\hskip -" .. string.format(fmt4, rlap_indent) .. "pt \\hfill"
-      .. color_prefix .. "\\special{pdf: literal direct {q 1 0 0 1 -" .. string.format(cin, geom.img_w_pt) .. " 0 cm " .. pdf_path .. " Q}}" .. color_suffix
-      .. "\\kern -" .. string.format(fmt4, rpad + geom.shiftx_pt) .. "pt }}"
-  elseif position == "middle" then
+
+  local hpos
+  if position == "middle" then
     local co = (geom.hsize_pt - geom.img_w_pt) / 2
-    imbox = imbox
-      .. "\\rlap{\\hskip " .. string.format(fmt4, co + geom.shiftx_pt - rlap_indent)
-      .. "pt " .. color_prefix .. "\\special{pdf: literal direct {q " .. pdf_path .. " Q}}" .. color_suffix .. "}"
+    hpos = "\\hskip " .. string.format(fmt4, co + geom.shiftx_pt - rlap_indent) .. "pt"
+  elseif position == "right" then
+    hpos = "\\hskip " .. string.format(fmt4, geom.hsize_pt - geom.gg_max_x + geom.shiftx_pt - rlap_indent) .. "pt"
   else
-    imbox = imbox
-      .. "\\rlap{\\hskip " .. string.format(fmt4, -geom.gg_min_x + geom.shiftx_pt - first_indent)
-      .. "pt " .. color_prefix .. "\\special{pdf: literal direct {q " .. pdf_path .. " Q}}" .. color_suffix .. "}"
+    hpos = "\\hskip " .. string.format(fmt4, -geom.gg_min_x + geom.shiftx_pt - first_indent) .. "pt"
   end
+
+  local vpos = "\\raisebox{" .. string.format(fmt4, geom.shifty_pt + geom.bskip_pt) .. "pt}{\\smash{"
+
+  imbox = imbox
+    .. "\\rlap{" .. hpos .. " " .. vpos
+    .. color_prefix .. "\\special{pdf: literal direct {q " .. pdf_path .. " Q}}" .. color_suffix
+    .. "}}}"
   return imbox
 end
 
