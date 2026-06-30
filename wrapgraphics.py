@@ -376,11 +376,20 @@ def main(argv: list[str] | None = None) -> int:
     mask = threshold(alpha, args.threshold)
     vprint(f"threshold={args.threshold} applied")
 
+    if args.padding > 0:
+        from PIL import ImageOps
+        mask = ImageOps.expand(mask, border=args.padding, fill=0)
+        vprint(f"padded by {args.padding} px (border)")
+
     mask = dilate_fast(mask, args.padding)
     vprint(f"dilated by {args.padding} px (integral-image)")
 
     contour = trace_contour(mask, simplify=args.simplify, epsilon=args.epsilon)
     vprint(f"contour traced: {len(contour)} points (simplify={args.simplify}, epsilon={args.epsilon})")
+
+    if args.padding > 0:
+        contour = [(x - args.padding, y - args.padding) for x, y in contour]
+        vprint(f"contour translated back by -{args.padding} px")
 
     if args.smooth > 0:
         contour = smooth_contour(contour, args.smooth)
