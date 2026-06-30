@@ -665,39 +665,33 @@ local function wr_build_image_box(position, anchor, geom, contour, sf)
   local fmt4 = string.char(37) .. ".4f"
   local first_indent = wr_indent_for_line(0, position, geom, contour, sf)
   local rlap_indent = (geom.shifty_pt <= 0) and 0 or first_indent
-  local rpad = geom.img_w_pt - geom.gg_max_x
-  local imbox
 
-  if position == "middle" then
-    local co = (geom.hsize_pt - geom.img_w_pt) / 2
-    imbox = "\\rlap{\\hskip " .. string.format(fmt4, co + geom.shiftx_pt - rlap_indent) .. "pt \\raisebox{" .. string.format(fmt4, geom.shifty_pt) .. "pt}{\\smash{\\usebox{\\csname wr@imagebox\\endcsname}}}}"
-  elseif position == "right" then
-    if anchor == "here" then
-      imbox = "\\rlap{\\hskip " .. string.format(fmt4, geom.hsize_pt - geom.gg_max_x + geom.shiftx_pt - rlap_indent) .. "pt \\raisebox{" .. string.format(fmt4, geom.shifty_pt) .. "pt}{\\smash{\\usebox{\\csname wr@imagebox\\endcsname}}}}"
+  local hpos
+  if anchor == "here" then
+    if position == "middle" then
+      local co = (geom.hsize_pt - geom.img_w_pt) / 2
+      hpos = "\\hskip " .. string.format(fmt4, co + geom.shiftx_pt - rlap_indent) .. "pt"
+    elseif position == "right" then
+      hpos = "\\hskip " .. string.format(fmt4, geom.hsize_pt - geom.gg_max_x + geom.shiftx_pt - rlap_indent) .. "pt"
+    else
+      hpos = "\\hskip " .. string.format(fmt4, -geom.gg_min_x + geom.shiftx_pt - first_indent) .. "pt"
     end
+  elseif anchor == "nw" or anchor == "sw" then
+    hpos = "\\hskip " .. string.format(fmt4, geom.shiftx_pt - rlap_indent) .. "pt"
   else
-    if anchor == "here" then
-      imbox = "\\rlap{\\hskip " .. string.format(fmt4, -geom.gg_min_x + geom.shiftx_pt - rlap_indent) .. "pt \\raisebox{" .. string.format(fmt4, geom.shifty_pt) .. "pt}{\\smash{\\usebox{\\csname wr@imagebox\\endcsname}}}}"
-    end
+    hpos = "\\hskip \\dimexpr \\textwidth-\\wd\\wr@imagebox" .. string.format("%+.4f", geom.shiftx_pt - rlap_indent) .. "pt\\relax"
   end
 
-  if anchor ~= "here" then
-    local hpos
-    if anchor == "nw" or anchor == "sw" then
-      hpos = "\\hskip " .. string.format(fmt4, geom.shiftx_pt - rlap_indent) .. "pt"
-    else
-      hpos = "\\hskip \\dimexpr \\textwidth-\\wd\\wr@imagebox" .. string.format("%+.4f", geom.shiftx_pt - rlap_indent) .. "pt\\relax"
-    end
-    local vpos
-    if anchor == "nw" or anchor == "ne" then
-      vpos = "\\dimexpr \\pagetotal-\\ht\\wr@imagebox" .. string.format("%+.4f", geom.shifty_pt) .. "pt\\relax"
-    else
-      vpos = "\\dimexpr \\pagetotal-\\textheight" .. string.format("%+.4f", geom.shifty_pt) .. "pt\\relax"
-    end
-    imbox = "\\rlap{" .. hpos .. " \\raisebox{" .. vpos .. "}{\\usebox{\\csname wr@imagebox\\endcsname}}}"
+  local vpos
+  if anchor == "here" then
+    vpos = "\\raisebox{" .. string.format(fmt4, geom.shifty_pt) .. "pt}{\\smash{\\usebox{\\csname wr@imagebox\\endcsname}}}"
+  elseif anchor == "nw" or anchor == "ne" then
+    vpos = "\\raisebox{\\dimexpr \\pagetotal-\\ht\\wr@imagebox" .. string.format("%+.4f", geom.shifty_pt) .. "pt\\relax}{\\usebox{\\csname wr@imagebox\\endcsname}}"
+  else
+    vpos = "\\raisebox{\\dimexpr \\pagetotal-\\textheight" .. string.format("%+.4f", geom.shifty_pt) .. "pt\\relax}{\\usebox{\\csname wr@imagebox\\endcsname}}"
   end
 
-  return imbox
+  return "\\rlap{" .. hpos .. " " .. vpos .. "}"
 end
 
 local xcolor_map = {
@@ -781,7 +775,7 @@ local function wr_build_contour_overlay(imbox, contour, sf, position, contour_va
       .. "pt " .. color_prefix .. "\\special{pdf: literal direct {q " .. pdf_path .. " Q}}" .. color_suffix .. "}"
   else
     imbox = imbox
-      .. "\\rlap{\\hskip -" .. string.format(fmt4, geom.gg_min_x - geom.shiftx_pt + rlap_indent)
+      .. "\\rlap{\\hskip " .. string.format(fmt4, -geom.gg_min_x + geom.shiftx_pt - first_indent)
       .. "pt " .. color_prefix .. "\\special{pdf: literal direct {q " .. pdf_path .. " Q}}" .. color_suffix .. "}"
   end
   return imbox
