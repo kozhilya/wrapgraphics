@@ -659,7 +659,7 @@ end
 -- \textbf{Output:} \texttt{imbox} --- the \LaTeX{} command string for
 -- image placement
 --[/doc]
-local function wr_build_image_box(position, anchor, geom, contour, sf)
+local function wr_build_image_box(position, anchor, geom, contour, sf, skip_count)
   local fmt4 = "%.4f"
   local first_indent = wr_indent_for_line(0, position, geom, contour, sf)
   local rlap_indent = (geom.shifty_pt >= 0) and 0 or first_indent
@@ -672,7 +672,7 @@ local function wr_build_image_box(position, anchor, geom, contour, sf)
     elseif position == "right" then
       hpos = "\\hskip " .. string.format(fmt4, geom.hsize_pt - geom.gg_max_x + geom.shiftx_pt - rlap_indent) .. "pt"
     else
-      hpos = "\\hskip " .. string.format(fmt4, -geom.gg_min_x + geom.shiftx_pt - first_indent) .. "pt"
+      hpos = "\\hskip " .. string.format(fmt4, -geom.gg_min_x + geom.shiftx_pt - ((skip_count == 0) and first_indent or 0)) .. "pt"
     end
   elseif anchor == "nw" or anchor == "sw" then
     hpos = "\\hskip " .. string.format(fmt4, geom.shiftx_pt - rlap_indent) .. "pt"
@@ -719,7 +719,7 @@ end
 -- \texttt{wr\_build\_image\_box} so the contour stroke aligns exactly
 -- with the image.
 --[/doc]
-local function wr_build_contour_overlay(imbox, contour, sf, position, contour_val, geom)
+local function wr_build_contour_overlay(imbox, contour, sf, position, contour_val, geom, skip_count)
   local fmt4 = "%.4f"
   local first_indent = wr_indent_for_line(0, position, geom, contour, sf)
   local rlap_indent = (geom.shifty_pt >= 0) and 0 or first_indent
@@ -746,7 +746,7 @@ local function wr_build_contour_overlay(imbox, contour, sf, position, contour_va
   elseif position == "right" then
     hpos = "\\hskip " .. string.format(fmt4, geom.hsize_pt - geom.gg_max_x + geom.shiftx_pt - rlap_indent) .. "pt"
   else
-    hpos = "\\hskip " .. string.format(fmt4, -geom.gg_min_x + geom.shiftx_pt - first_indent) .. "pt"
+    hpos = "\\hskip " .. string.format(fmt4, -geom.gg_min_x + geom.shiftx_pt - ((skip_count == 0) and first_indent or 0)) .. "pt"
   end
 
   local vpos = "\\smash{\\raisebox{" .. string.format(fmt4, geom.bskip_pt - geom.shifty_pt) .. "pt}{"
@@ -893,11 +893,11 @@ function wrapgraphics_run()
   local par_n, par_lines_flat, parshape_str = wr_build_parshape(
     skip_count, hsize_pt, position, num_lines, hang_mode, geom, shape.contour, sf)
 
-  local imbox = wr_build_image_box(position, anchor, geom, shape.contour, sf)
+  local imbox = wr_build_image_box(position, anchor, geom, shape.contour, sf, skip_count)
 
   local contour_val = tex.wr_contour
   if contour_val ~= "false" and contour_val ~= "" then
-    imbox = wr_build_contour_overlay(imbox, shape.contour, sf, position, contour_val, geom)
+    imbox = wr_build_contour_overlay(imbox, shape.contour, sf, position, contour_val, geom, skip_count)
   end
 
   dbg("gg_min_x=" .. string.format("%.4f", bounds.min_x_pt) .. " gg_max_x=" .. string.format("%.4f", bounds.max_x_pt)
