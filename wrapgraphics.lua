@@ -131,7 +131,16 @@ end
 --[/doc]
 wr_process_line = function(line, nlines, st)
   local line_h = (line.height + line.depth) / 65536
-  if line_h <= 0 then line_h = st.bskip end
+  if line_h <= 0 then
+    -- Display math lines may have height=depth=0; measure from children
+    line_h = 0
+    for child in node.traverse(line.list) do
+      local ch = (child.height or 0) + (child.depth or 0)
+      if ch > line_h then line_h = ch end
+    end
+    line_h = line_h / 65536
+    if line_h <= 0 then line_h = st.bskip end
+  end
   local extra = math.max(0, math.ceil(line_h / st.bskip) - 1)
 
   local combined_indent = 0
