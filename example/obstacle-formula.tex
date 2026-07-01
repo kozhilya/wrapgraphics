@@ -1,0 +1,21 @@
+% !TEX program = lualatex
+% !TEX options = --shell-escape
+\documentclass{article}
+\usepackage{wrapgraphics}
+\usepackage{lipsum}
+\usepackage{geometry}
+\usepackage{amsmath}
+\geometry{a4paper, margin=2.5cm}
+
+\begin{document}
+
+\wrapgraphics[padding=40, width=0.6\textwidth]{img/tree.png}
+\lipsum[1]
+
+\[
+  \int_{-\infty}^{\infty} e^{-x^2}\,dx = \sqrt{\pi}
+\]
+
+\lipsum[2-4]
+
+\end{document}
