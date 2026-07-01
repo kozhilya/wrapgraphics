@@ -80,14 +80,20 @@ local function post_linebreak_filter(head, is_display)
     wr_remaining = nil
     return head
   end
+  -- Measure actual line heights (formulas etc. take >1 bskip)
+  local lines_info = {}  -- { nlines, para_h_pt, line_advances[] }
   local nlines = 0
+  local para_h_pt = 0
   for line in node.traverse_id(node.id("hlist"), head) do
     nlines = nlines + 1
+    local line_h = (line.height + line.depth) / 65536
+    para_h_pt = para_h_pt + line_h
+    local advance = math.max(1, math.ceil(line_h / st.bskip))
     -- Determine combined indent/width for this line and clear if zero-width
     local combined_indent = 0
     local combined_right = st.images[1] and st.images[1].geom.hsize_pt or 0
     for _, img in ipairs(st.images) do
-      local line_idx = img.used + nlines - 1
+      local line_idx = img.used + (nlines - 1)
       if line_idx < img.total then
         local ok, ii = pcall(wr_indent_for_line, line_idx, img.pos, img.geom, img.contour, img.sf)
         if not ok then ii = 0 end
@@ -110,13 +116,18 @@ local function post_linebreak_filter(head, is_display)
       node.flush_list(line.list)
       line.list = empty
     end
+    for a = 1, advance - 1 do
+      -- Mark intermediate positions as "used" for tall lines
+      -- (they don't consume actual parshape entries, but advance the y-position)
+      nlines = nlines + 1
+    end
   end
 
   local pt = tex.pagetotal / 65536
   local vs = tex.vsize / 65536
-  local para_h = nlines * st.bskip
 
-  if pt + para_h > vs then
+  if pt + para_h_pt > vs then
+    -- Page break: advance by approximate count
     local on_page = math.max(1, math.floor((vs - pt) / st.bskip))
     for _, img in ipairs(st.images) do
       img.used = img.used + on_page
