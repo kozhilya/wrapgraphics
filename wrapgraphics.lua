@@ -73,6 +73,7 @@ local function clear_on_page_change()
   return false
 end
 
+-- TODO: Добавь документацию.
 local function post_linebreak_filter(head, is_display)
   if not wr_remaining then return head end
   if clear_on_page_change() then return head end
@@ -130,6 +131,7 @@ end
 --[/doc]
 wr_process_line = function(line, nlines, st)
   local line_h = (line.height + line.depth) / 65536
+  if line_h <= 0 then line_h = st.bskip end
   local extra = math.max(0, math.ceil(line_h / st.bskip) - 1)
 
   local combined_indent = 0
@@ -158,6 +160,8 @@ wr_process_line = function(line, nlines, st)
     node.flush_list(line.list)
     line.list = empty
   end
+
+  dbg("After tall line with height " .. string.format("%.2f", line_h) .. " advancing " .. extra .. " line(s) in parshape")
   return line_h, extra
 end
 
