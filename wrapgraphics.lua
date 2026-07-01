@@ -27,6 +27,7 @@ local post_cb_installed = false
 
 -- Forward declarations (defined later, used by callbacks)
 local wr_indent_for_line
+local wr_process_line
 
 --[doc]
 -- Module-level verbose flag. Set at the start of \texttt{wrapgraphics\_run()}
@@ -81,46 +82,14 @@ local function post_linebreak_filter(head, is_display)
     return head
   end
   -- Measure actual line heights (formulas etc. take >1 bskip)
-  local lines_info = {}  -- { nlines, para_h_pt, line_advances[] }
   local nlines = 0
   local para_h_pt = 0
   for line in node.traverse_id(node.id("hlist"), head) do
     nlines = nlines + 1
-    local line_h = (line.height + line.depth) / 65536
+    local line_h, extra = wr_process_line(line, nlines, st)
     para_h_pt = para_h_pt + line_h
-    local advance = math.max(1, math.ceil(line_h / st.bskip))
-    -- Determine combined indent/width for this line and clear if zero-width
-    local combined_indent = 0
-    local combined_right = st.images[1] and st.images[1].geom.hsize_pt or 0
-    for _, img in ipairs(st.images) do
-      local line_idx = img.used + (nlines - 1)
-      if line_idx < img.total then
-        local ok, ii = pcall(wr_indent_for_line, line_idx, img.pos, img.geom, img.contour, img.sf)
-        if not ok then ii = 0 end
-        if img.pos == "right" then
-          if ii < combined_right then combined_right = ii end
-        else
-          if ii > combined_indent then combined_indent = ii end
-        end
-      end
-    end
-    if combined_indent > combined_right then combined_indent = combined_right end
-    if combined_indent ~= combined_indent or combined_indent > 1e6 then combined_indent = 0 end
-    local width = combined_right - combined_indent
-    if width ~= width or width > 1e6 then width = 0 end
-    width = math.max(0, width)
-    if width <= 0 then
-      local empty = node.new("hlist")
-      empty.width = 0
-      node.slide(empty)
-      node.flush_list(line.list)
-      line.list = empty
-    end
-    for a = 1, advance - 1 do
-      -- Mark intermediate positions as "used" for tall lines
-      -- (they don't consume actual parshape entries, but advance the y-position)
-      nlines = nlines + 1
-    end
+    -- Tall lines (formulas) consume extra bskip units
+    nlines = nlines + extra
   end
 
   local pt = tex.pagetotal / 65536
@@ -152,6 +121,44 @@ local function post_linebreak_filter(head, is_display)
     st.images = alive
   end
   return head
+end
+
+--[doc]
+-- Process a single line (hlist) in post_linebreak_filter:
+-- measure height, compute combined indent/width across all images,
+-- clear content if zero-width, return extra bskip units consumed.
+--[/doc]
+wr_process_line = function(line, nlines, st)
+  local line_h = (line.height + line.depth) / 65536
+  local extra = math.max(0, math.ceil(line_h / st.bskip) - 1)
+
+  local combined_indent = 0
+  local combined_right = st.images[1] and st.images[1].geom.hsize_pt or 0
+  for _, img in ipairs(st.images) do
+    local line_idx = img.used + nlines - 1
+    if line_idx < img.total then
+      local ok, ii = pcall(wr_indent_for_line, line_idx, img.pos, img.geom, img.contour, img.sf)
+      if not ok then ii = 0 end
+      if img.pos == "right" then
+        if ii < combined_right then combined_right = ii end
+      else
+        if ii > combined_indent then combined_indent = ii end
+      end
+    end
+  end
+  if combined_indent > combined_right then combined_indent = combined_right end
+  if combined_indent ~= combined_indent or combined_indent > 1e6 then combined_indent = 0 end
+  local width = combined_right - combined_indent
+  if width ~= width or width > 1e6 then width = 0 end
+  width = math.max(0, width)
+  if width <= 0 then
+    local empty = node.new("hlist")
+    empty.width = 0
+    node.slide(empty)
+    node.flush_list(line.list)
+    line.list = empty
+  end
+  return line_h, extra
 end
 
 --[doc]
