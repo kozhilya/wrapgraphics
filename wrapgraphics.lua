@@ -133,12 +133,26 @@ wr_process_line = function(line, nlines, st)
   local line_h = (line.height + line.depth) / 65536
   if line_h <= 0 then
     -- Display math lines may have height=depth=0; measure from children
-    line_h = 0
-    for child in node.traverse(line.list) do
-      local ch = (child.height or 0) + (child.depth or 0)
-      if ch > line_h then line_h = ch end
+    local function max_extent(n)
+      local m = 0
+      while n do
+        if n.height then
+          local h = (n.height + (n.depth or 0))
+          if h > m then m = h end
+        end
+        if n.list then
+          local c = max_extent(n.list)
+          if c > m then m = c end
+        end
+        if n.head then
+          local c = max_extent(n.head)
+          if c > m then m = c end
+        end
+        n = n.next
+      end
+      return m
     end
-    line_h = line_h / 65536
+    line_h = max_extent(line.list) / 65536
     if line_h <= 0 then line_h = st.bskip end
   end
   local extra = math.max(0, math.ceil(line_h / st.bskip) - 1)
@@ -197,6 +211,24 @@ function wr_setup_parshape()
     wr_remaining = nil
     return
   end
+  -- Resync img.used from the actual vertical position on the page.
+  -- post_linebreak_filter can only count hlist lines, so it under-counts
+  -- vertical-mode constructs (display math via \[...\], headings, \vbox
+  -- inserts) whose height never appears in the horizontal paragraph
+  -- list. By the time \everypar fires, the page builder has already
+  -- moved that material into the page, so (tex.pagetotal -
+  -- start_pagetotal) reflects the true consumed height. Convert it to
+  -- parshape line units and advance each image's used counter to match,
+  -- never going backwards (avoids re-applying a cutout to lines already
+  -- past the image).
+  if st.start_pagetotal then
+    local delta_pt = (tex.pagetotal - st.start_pagetotal) / 65536
+    local target = math.floor(delta_pt / st.bskip + 0.5)
+    for _, img in ipairs(st.images) do
+      if target > img.used then img.used = target end
+    end
+    dbg("everypar resync: delta=" .. string.format("%.2f", delta_pt) .. "pt -> target=" .. target .. " used=" .. st.images[1].used)
+  end
   -- Compute remaining lines: max of all images
   local max_remaining = 0
   for _, img in ipairs(st.images) do
@@ -242,6 +274,7 @@ function wr_setup_parshape()
   for _, v in ipairs(parts) do
     str = str .. string.format("%.1f", v) .. "pt "
   end
+  dbg("everypar parshape: n=" .. n .. " used=" .. st.images[1].used .. " " .. str:sub(1, 80))
   tex.print(str)
 end
 
@@ -1045,6 +1078,7 @@ function wrapgraphics_run()
       bskip     = bskip_pt,
       parindent = tex.parindent / 65536,
       start_page = status and status.page or 0,
+      start_pagetotal = tex.pagetotal,
     }
 
     if not post_cb_installed then
