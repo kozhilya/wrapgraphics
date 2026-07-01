@@ -1003,8 +1003,10 @@ function wrapgraphics_run()
   if wr_remaining then
     -- Add to existing multi-image state
     wr_remaining.images[#wr_remaining.images + 1] = img_state
-    -- Inject the second image placement (appended to current paragraph)
-    tex.print("\\rlap{\\hskip 0pt \\smash{\\raisebox{0pt}{\\usebox{\\csname wr@imagebox\\endcsname}}}}")
+    -- Inject the image placement (appended to current paragraph)
+    tex.print(imbox)
+    -- Inject new combined parshape for remaining lines
+    wr_setup_parshape()
   else
     -- First image — create new state
     wr_remaining = {
