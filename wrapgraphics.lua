@@ -25,7 +25,6 @@
 local wr_remaining = nil  -- { images = { {..}, {..} }, bskip, parindent, start_page }
 local wr_deferred = nil
 local post_cb_installed = false
-local pre_cb_installed = false
 
 -- Forward declarations (defined later, used by callbacks)
 local wr_indent_for_line
@@ -204,12 +203,12 @@ local function wr_inject_deferred(d)
   local bskip = d.bskip
   local hsize = d.hsize_pt
 
-  if pos < col_break or pos >= col_break + def_total - 1 then
+  if pos >= col_break + def_total - 1 then
     return false
   end
 
-  local pre = 0
-  local def_avail = def_total - (pos - col_break)
+  local pre = math.max(0, col_break - pos)
+  local def_avail = def_total - math.max(0, pos - col_break)
   if def_avail < 0 then def_avail = 0 end
 
   local parts = {}
@@ -240,7 +239,7 @@ local function wr_inject_deferred(d)
     str = str .. string.format("%.1f", v) .. "pt "
   end
   tex.print(str)
-  dbg("deferred: pos=" .. pos .. " col_break=" .. col_break
+  dbg("deferred: pos=" .. pos .. " col_break=" .. col_break .. " pre=" .. pre
     .. " def_avail=" .. def_avail .. " start=" .. start .. " n=" .. n)
   return true
 end
@@ -248,17 +247,17 @@ end
 --[doc]
 -- \subsection*{\texttt{wr\_setup\_parshape}}
 --
--- Called from \verb|\everypar| or \texttt{pre\_linebreak\_filter} on
--- every new paragraph when there are remaining wrapped lines. It slices
--- the next chunk of \verb|\parshape| entries from the stored
--- \texttt{wr\_remaining.lines} array and injects them into the \TeX{}
--- stream.
+-- Called from \verb|\everypar| on every new paragraph line when there
+-- are remaining wrapped lines. It slices the next chunk of
+-- \verb|\parshape| entries from the stored \texttt{wr\_remaining.lines}
+-- array (which stores indent and width as flat pairs) and injects them
+-- into the \TeX{} stream.
 -- 
 -- The function checks whether the image height has been fully covered;
 -- if so, it clears the state and subsequent lines use full text width.
 -- 
 -- \textbf{Input:} none (reads module state \texttt{wr\_remaining})
--- \textbf{Output:} none (writes into the \TeX{} stream via \texttt{tex.parshape})
+-- \textbf{Output:} none (writes into the \TeX{} stream via \texttt{tex.print})
 --[/doc]
 function wr_setup_parshape()
   if wr_deferred then
@@ -266,7 +265,7 @@ function wr_setup_parshape()
     if cur ~= wr_deferred.start_page then
       wr_deferred = nil
     else
-      if wr_inject_deferred(wr_deferred) then return end
+      wr_inject_deferred(wr_deferred)
     end
   end
 
@@ -283,7 +282,7 @@ function wr_setup_parshape()
     for _, img in ipairs(st.images) do
       if target > img.used then img.used = target end
     end
-    dbg("resync: delta=" .. string.format("%.2f", delta_pt) .. "pt -> target=" .. target .. " used=" .. st.images[1].used)
+    dbg("everypar resync: delta=" .. string.format("%.2f", delta_pt) .. "pt -> target=" .. target .. " used=" .. st.images[1].used)
   end
   local max_remaining = 0
   for _, img in ipairs(st.images) do
@@ -315,6 +314,7 @@ function wr_setup_parshape()
     end
     if combined_indent > combined_right then combined_indent = combined_right end
     local width = math.max(0, combined_right - combined_indent)
+    -- Guard against NaN/Inf
     if width ~= width or width > 1e6 then width = 0 end
     if combined_indent ~= combined_indent or combined_indent > 1e6 then combined_indent = 0 end
     parts[#parts + 1] = combined_indent
@@ -324,26 +324,13 @@ function wr_setup_parshape()
   parts[#parts + 1] = 0
   parts[#parts + 1] = hsize
   local n = #parts // 2
-  local pdata = { n }
+  local str = "\\parshape " .. n .. " "
   for _, v in ipairs(parts) do
-    pdata[#pdata + 1] = v
+    str = str .. string.format("%.1f", v) .. "pt "
   end
-  tex.parshape = pdata
-  dbg("parshape: n=" .. n .. " used=" .. st.images[1].used)
+  dbg("everypar parshape: n=" .. n .. " used=" .. st.images[1].used .. " " .. str:sub(1, 80))
+  tex.print(str)
   return true
-end
-
---[doc]
--- \subsubsection*{\texttt{wr\_pre\_linebreak\_filter}}
---
--- Lua\TeX{} \texttt{pre\_linebreak\_filter} callback that injects the
--- correct \texttt{\string\parshape} before every paragraph, regardless
--- of \mintinline{latex}|\everypar| modifications by \LaTeX{}
--- commands such as \mintinline{latex}|\subsection|.
---[/doc]
-local function wr_pre_linebreak_filter(head, is_display)
-  wr_setup_parshape()
-  return head
 end
 
 --[doc]
@@ -1374,11 +1361,8 @@ function wrapgraphics_run()
       luatexbase.add_to_callback("post_linebreak_filter", post_linebreak_filter, "wrapgraphics")
       post_cb_installed = true
     end
-    if not pre_cb_installed then
-      luatexbase.add_to_callback("pre_linebreak_filter", wr_pre_linebreak_filter, "wrapgraphics")
-      pre_cb_installed = true
-    end
 
     tex.print("\\noindent" .. imbox .. parshape_str)
+    tex.print("\\everypar{\\directlua{wr_setup_parshape()}}")
   end
 end
