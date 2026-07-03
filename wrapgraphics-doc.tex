@@ -20,8 +20,8 @@
   \fbox{\includegraphics[#1]{example/#2}}%
 }
 
-\newcommand{\previewwidth}{0.3\textwidth}
-\newcommand{\pairpreviewwidth}{0.45\textwidth}
+\newcommand{\previewwidth}{0.25\textwidth}
+\newcommand{\pairpreviewwidth}{0.4\textwidth}
 
 \NewDocumentCommand{\exampletable}{m m m O{}}{
   \bigskip
@@ -57,11 +57,11 @@
     width=\textwidth,
   }
     #1 & \SetCell[r=3]{}\colorbox{white}{%
-      \begin{minipage}{\pairpreviewwidth}
+      \begin{minipage}{\linewidth}
         \centering
-        \includegraphics[width=0.2\textwidth]{example/#3}%
-        \hfill
-        \includegraphics[page=2,width=0.2\textwidth]{example/#3}%
+        \includegraphics[width=0.5\textwidth]{example/#3}%
+        % \hfill
+        \includegraphics[page=2,width=0.5\textwidth]{example/#3}%
       \end{minipage}
     }\\
     #4 \\

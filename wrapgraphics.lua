@@ -64,13 +64,14 @@ end
 -- \textbf{Output:} the (unmodified) node list
 --[/doc]
 local function clear_on_page_change()
-  if not wr_remaining then return true end
   local cur = status and status.page or 0
-  if not wr_remaining.start_page then return false end
-  if cur > wr_remaining.start_page then
-    wr_remaining = nil
-    wr_deferred = nil
-    return true
+  if wr_remaining then
+    if not wr_remaining.start_page then return false end
+    if cur > wr_remaining.start_page then
+      wr_remaining = nil
+      wr_deferred = nil
+      return true
+    end
   end
   if wr_deferred and wr_deferred.start_page and cur > wr_deferred.start_page then
     wr_deferred = nil
@@ -79,53 +80,56 @@ local function clear_on_page_change()
 end
 
 local function post_linebreak_filter(head, is_display)
-  if not wr_remaining then return head end
+  if not wr_remaining and not wr_deferred then return head end
   if clear_on_page_change() then return head end
-  local st = wr_remaining
-  if not st.images or #st.images == 0 then
-    wr_remaining = nil
-    return head
-  end
   local nlines = 0
   local para_h_pt = 0
   for line in node.traverse_id(node.id("hlist"), head) do
     nlines = nlines + 1
-    local line_h, extra = wr_process_line(line, nlines, st)
-    para_h_pt = para_h_pt + line_h
-    nlines = nlines + extra
-  end
-
-  local pt = tex.pagetotal / 65536
-  local vs = tex.vsize / 65536
-
-  if pt + para_h_pt > vs then
-    local on_page = math.max(1, math.floor((vs - pt) / st.bskip))
-    for _, img in ipairs(st.images) do
-      img.used = img.used + on_page
+    if wr_remaining then
+      local st = wr_remaining
+      local line_h, extra = wr_process_line(line, nlines, st)
+      para_h_pt = para_h_pt + line_h
+      nlines = nlines + extra
     end
-    wr_remaining = nil
-    return head
-  end
-
-  for _, img in ipairs(st.images) do
-    img.used = img.used + nlines
-  end
-  local alive = {}
-  for _, img in ipairs(st.images) do
-    if img.used < img.total and img.used * st.bskip < img.img_h then
-      alive[#alive + 1] = img
-    end
-  end
-  if #alive == 0 then
-    wr_remaining = nil
-  else
-    st.images = alive
   end
 
   if wr_deferred then
     wr_deferred.lines_since_start = wr_deferred.lines_since_start + nlines
     if wr_deferred.lines_since_start >= wr_deferred.k_col + wr_deferred.total - 1 then
       wr_deferred = nil
+    end
+  end
+
+  if wr_remaining then
+    local st = wr_remaining
+    if not st.images or #st.images == 0 then
+      wr_remaining = nil
+      return head
+    end
+    local pt = tex.pagetotal / 65536
+    local vs = tex.vsize / 65536
+    if pt + para_h_pt > vs then
+      local on_page = math.max(1, math.floor((vs - pt) / st.bskip))
+      for _, img in ipairs(st.images) do
+        img.used = img.used + on_page
+      end
+      wr_remaining = nil
+      return head
+    end
+    for _, img in ipairs(st.images) do
+      img.used = img.used + nlines
+    end
+    local alive = {}
+    for _, img in ipairs(st.images) do
+      if img.used < img.total and img.used * st.bskip < img.img_h then
+        alive[#alive + 1] = img
+      end
+    end
+    if #alive == 0 then
+      wr_remaining = nil
+    else
+      st.images = alive
     end
   end
 
