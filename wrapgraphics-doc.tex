@@ -214,10 +214,10 @@ It is implemented by dilating the alpha mask before contour tracing.
 Note that the value of this option is in pixels of the image.  Because of
 it, the same value will produce different results for small and large images.
 
-\exampletable{Padding 0\,px}{padding-00}{params-padding-00.pdf}[
+\exampletable{Padding 0\,px}{padding-00}{padding-00.pdf}[
   No padding: text follows the exact alpha contour.]
 
-\exampletable{Padding 100\,px}{padding-50}{params-padding-50.pdf}[
+\exampletable{Padding 100\,px}{padding-50}{padding-50.pdf}[
   Very large padding pushes text far from the image.]
 
 \subsection{\texttt{position} (default: \texttt{left})}\label{macro:position}
@@ -226,7 +226,7 @@ Which side of the image the text wraps around.  Accepted values are
 \texttt{left}, \texttt{right}, and \texttt{middle}.
 With \texttt{middle} the image is centred and text flows around it.
 
-\exampletable{Position \texttt{left} (default)}{left}{basic.pdf}[
+\exampletable{Position \texttt{left} (default)}{basic}{basic.pdf}[
   Text wraps around the left side of the image.]
 
 \exampletable{Position \texttt{right}}{right}{right.pdf}[
@@ -240,10 +240,10 @@ pixels.  A low value treats more pixels as opaque, keeping the contour
 closer to the visible image edge.  A high value lets text come closer
 to the core of the image.
 
-\exampletable{Threshold 0.3}{threshold-03}{params-threshold-03.pdf}[
+\exampletable{Threshold 0.3}{threshold-03}{threshold-03.pdf}[
   Low threshold: contour is close to the visible edge.]
 
-\exampletable{Threshold 0.8}{threshold-08}{params-threshold-08.pdf}[
+\exampletable{Threshold 0.8}{threshold-08}{threshold-08.pdf}[
   High threshold: text can come closer to the core.]
 
 
@@ -252,7 +252,7 @@ to the core of the image.
 Scale factor passed to \mintinline{latex}|\includegraphics|.  Overridden
 by \texttt{width} if both are specified.
 
-\exampletable{Scale 0.32}{left}{basic.pdf}[
+\exampletable{Scale 0.32}{basic}{basic.pdf}[
   Image scaled to 32\,\% of its natural size.]
 
 
@@ -271,10 +271,10 @@ When set to \texttt{true} the indent becomes constant for all lines,
 equal to the widest contour point.  Text is pushed by a fixed amount
 rather than following the exact shape.
 
-\exampletable{Hang left}{hang-left}{comparison-left-hang.pdf}[
+\exampletable{Hang left}{hang-left}{left-hang.pdf}[
   Left wrapping with a fixed indent equal to the widest point.]
 
-\exampletable{Hang right}{hang-right}{comparison-right-hang.pdf}[
+\exampletable{Hang right}{hang-right}{right-hang.pdf}[
   Right wrapping with a fixed indent.]
 
 \subsection{\texttt{lines}}\label{macro:lines}
@@ -285,7 +285,7 @@ text width.
 \exampletable{\texttt{lines=5}}{lines}{lines.pdf}[
   Wrapping is limited to 5 lines; text below uses full width.]
 
-\exampletable{\texttt{lines=-12, skip=14}}{params-lines-skip}{params-lines-skip.pdf}[
+\exampletable{\texttt{lines=-12, skip=14}}{lines-skip}{lines-skip.pdf}[
   Negative \texttt{lines} reduces total wrapped lines from computed
   value; \texttt{skip} leaves the first N lines without indent.]
 
@@ -308,7 +308,7 @@ lines from the \texttt{\string\wrapgraphics} command onward).
   Shift left by 40\,pt and up by 30\,pt.]
 % TODO: А на этом примере почему-то не переместился вырез под картинку - а они должны перемещаться вместе.
 
-\exampletable{Shift with right wrapping}{shift-combo}{shift-combo.pdf}[
+\exampletable{Shift with right wrapping}{shift-right}{shift-right.pdf}[
   Right wrapping with \texttt{shift\_x=15pt, shift\_y=5pt}.]
 
 
@@ -389,6 +389,22 @@ image from both the left and right within that column.
 \exampletable{Two-column middle}{twocolumn-middle}{twocolumn-middle.pdf}[
   Middle wrapping in the second column of a two-column layout.]
 
+
+\subsection{Obstacles inside wrapping}
+
+Vertical-mode constructs such as display math, headings, and lists
+inside a wrapped paragraph are handled automatically.  The wrapping
+shape adjusts to tall lines (e.g.\ formulas) by advancing the position
+accordingly.
+
+\exampletable{Display math inside wrap}{obstacle-formula}{obstacle-formula.pdf}[
+  A displayed formula \mintinline{latex}|\[...]| inside a wrapped paragraph.]
+
+\exampletable{Subsection heading inside wrap}{obstacle-heading}{obstacle-heading.pdf}[
+  A \mintinline{latex}|\subsection| heading inside a wrapped paragraph.]
+
+\exampletable{Lists inside wrap}{obstacle-list}{obstacle-list.pdf}[
+  Bullet and enumerated lists inside a wrapped paragraph.]
 
 \section{Source files}
 

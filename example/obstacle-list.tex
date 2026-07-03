@@ -1,32 +1,13 @@
 % !TEX program = lualatex
 % !TEX options = --shell-escape
 \documentclass{article}
-\usepackage{wrapgraphics}
-\usepackage{lipsum}
-\usepackage{geometry}
-\usepackage{amsmath}
-\usepackage{amssymb}
+\usepackage{_example_style}
 \usepackage{enumitem}
-\geometry{a4paper, margin=2.5cm}
 
 \begin{document}
 
-\section*{Obstacles inside wrapping}
-
-Text with headings, formulas, and lists inside the wrapped paragraph.
-
 \wrapgraphics[padding=40, width=0.6\textwidth]{img/tree.png}
 \lipsum[1]
-
-\subsection*{A subsection inside the wrap}
-
-\lipsum[2]
-
-\[
-  \int_{-\infty}^{\infty} e^{-x^2}\,dx = \sqrt{\pi}
-\qquad
-  \sum_{k=0}^{\infty} \frac{1}{k^2} = \frac{\pi^2}{6}
-\]
 
 \begin{itemize}
   \item First item in a bullet list.
@@ -44,11 +25,5 @@ Text with headings, formulas, and lists inside the wrapped paragraph.
 \end{enumerate}
 
 \lipsum[5][1-3]
-
-\[
-  f(x) = \frac{1}{\sigma\sqrt{2\pi}} \exp\!\Bigl(-\frac{(x-\mu)^2}{2\sigma^2}\Bigr)
-\]
-
-\lipsum[6-8]
 
 \end{document}
