@@ -692,25 +692,32 @@ local function wr_build_parshape(skip_count, hsize_pt, position, num_lines, hang
       par_n = par_n + 1
     end
   else
-    local max_indent = 0
-    local min_indent = 1e308
+    -- First pass: compute natural boundaries and find extremum for hang mode
+    local natural = {}
+    local extremum = (position == "right") and math.huge or 0
+    local extremum_idx = -1
     for i = skip_count, num_lines - 1 do
-      local boundary = wr_indent_for_line(i, position, geom, contour, sf)
+      local b = wr_indent_for_line(i, position, geom, contour, sf)
+      natural[i] = b
+      if position == "right" then
+        if b < extremum then extremum = b; extremum_idx = i end
+      else
+        if b > extremum then extremum = b; extremum_idx = i end
+      end
+    end
+    for i = skip_count, num_lines - 1 do
+      local boundary = natural[i]
+      if hang_mode and i > extremum_idx then
+        local y_top = i * geom.bskip_pt - geom.shifty_pt
+        if y_top < geom.gg_max_y_pt then
+          boundary = extremum
+        end
+      end
       local indent, width
       if position == "right" then
-        -- Right: text flows on the left, indent=0, width = boundary
-        if hang_mode then
-          if boundary < min_indent then min_indent = boundary end
-          boundary = min_indent
-        end
         indent = 0
         width = boundary
       else
-        -- Left: text flows on the right, indent = boundary
-        if hang_mode then
-          if boundary > max_indent then max_indent = boundary end
-          boundary = max_indent
-        end
         indent = boundary
         width = hsize_pt - boundary
       end
@@ -832,19 +839,39 @@ local function wr_build_parshape_col(skip_count, hsize_pt, side, img_offset, num
     par_n = par_n + 1
   end
 
-  local max_indent = 0
-  local min_width = 1e308
+  -- First pass: compute natural values and find extremum for hang mode
+  local natural_indents = {}
+  local natural_widths = {}
+  local extremum_idx = -1
+  local extremum_val
+  if hang_mode then
+    extremum_val = (side == "right") and math.huge or 0
+  end
   for i = skip_count, num_lines - 1 do
     local indent, width = wr_indent_for_line_col(i, side, img_offset, hsize_pt, geom, contour, sf)
+    natural_indents[i] = indent
+    natural_widths[i] = width
     if hang_mode then
       if side == "right" then
-        if width < min_width then min_width = width end
-        width = min_width
-        indent = 0
+        if width < extremum_val then extremum_val = width; extremum_idx = i end
       else
-        if indent > max_indent then max_indent = indent end
-        indent = max_indent
-        width = hsize_pt - indent
+        if indent > extremum_val then extremum_val = indent; extremum_idx = i end
+      end
+    end
+  end
+  for i = skip_count, num_lines - 1 do
+    local indent = natural_indents[i]
+    local width = natural_widths[i]
+    if hang_mode and i > extremum_idx then
+      local y_top = i * geom.bskip_pt - geom.shifty_pt
+      if y_top < geom.gg_max_y_pt then
+        if side == "right" then
+          width = extremum_val
+          indent = 0
+        else
+          indent = extremum_val
+          width = hsize_pt - indent
+        end
       end
     end
     if width < 0 then width = 0 end
