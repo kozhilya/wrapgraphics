@@ -179,7 +179,7 @@ Supported options are \texttt{verbose} (\ref{package:verbose}) and \texttt{conto
 \subsection{\texttt{verbose}}\label{package:verbose}
 
 When enabled, additional diagnostic messages are written to the
-terminal and log file.  It only exist for for debugging or performance
+terminal and log file.  It is only useful for debugging or performance
 analysis.  Therefore, it should be disabled when compiling large documents.
 
 \subsection{\texttt{contour}}\label{package:contour}
@@ -285,8 +285,29 @@ text width.
 \exampletable{\texttt{lines=5}}{lines}{lines.pdf}[
   Wrapping is limited to 5 lines; text below uses full width.]
 
+If the value of $N$ is negative, wrapping is truncated by $|N|$ lines
+from the bottom rather than fixed to an absolute count.
+
+\exampletable{\texttt{lines=-8}}{lines-negative}{lines-negative.pdf}[
+  Negative \texttt{lines} removes 8 lines from the computed total.]
+
+\subsection{\texttt{skip} (default: \texttt{0})}\label{macro:skip}
+
+Number of initial lines that should remain at full text width,
+without any wrapping indent.  Wrapping starts after these lines.
+
+For example, \texttt{skip=5} produces five full-width lines at the
+top of the paragraph, then begins contour wrapping from line~6.
+The total number of wrapped lines is unchanged.
+
+Together with \texttt{lines=-N}, this provides fine-grained control
+over which part of the paragraph is visually affected by the image.
+
+\exampletable{\texttt{skip=12}}{skip}{skip.pdf}[
+  First 12 lines are full-width; wrapping starts from line~13.]
+
 \exampletable{\texttt{lines=-12, skip=14}}{lines-skip}{lines-skip.pdf}[
-  Negative \texttt{lines} reduces total wrapped lines from computed
+  Negative \texttt{lines} reduces total wrapped lines from the computed
   value; \texttt{skip} leaves the first N lines without indent.]
 
 
@@ -306,32 +327,38 @@ lines from the \texttt{\string\wrapgraphics} command onward).
 
 \exampletable{Negative shift}{shift-negative}{shift-negative.pdf}[
   Shift left by 40\,pt and up by 30\,pt.]
-% TODO: А на этом примере почему-то не переместился вырез под картинку - а они должны перемещаться вместе.
 
 \exampletable{Shift with right wrapping}{shift-right}{shift-right.pdf}[
   Right wrapping with \texttt{shift\_x=15pt, shift\_y=5pt}.]
 
 
-\subsection{\texttt{anchor} (default: \texttt{here})}\label{macro:anchor}
+\section{Notable use cases}
 
-Where to anchor the image.  The value \texttt{here} (default) places it
-inline at the paragraph start.  The compass-point values
-(\texttt{nw}, \texttt{ne}, \texttt{sw}, \texttt{se}) pin it to the
-corresponding corner of the text area (north-west = top-left, etc.).
+\subsection{Two-column layout}
 
-% TODO: Все примеры с якорями сломаны полностью. 
+\texttt{\string\wrapgraphics} works in \texttt{twocolumn} mode.
+The wrapping area is sized to the column width.
 
-\exampletable{Anchor \texttt{ne}}{anchor}{anchor.pdf}[
-  Image anchored to the top-right corner.]
+\exampletable{Two-column left}{twocolumn}{twocolumn.pdf}[
+  Left wrapping in a two-column document.]
 
-\exampletable{Anchor \texttt{se}}{anchor-se}{anchor-se.pdf}[
-  Image anchored to the bottom-right corner.]
+With a large scale (or width) the image becomes wider than one column
+and reaches into the second column.
 
-\exampletable{Anchor \texttt{nw} with shift}{anchor-shift}{anchor-shift.pdf}[
-  North-west anchor combined with \texttt{shift\_x=30pt, shift\_y=20pt}.]
+\exampletable{Two-column wide}{twocolumn-wide}{twocolumn-wide.pdf}[
+  Image spanning two columns in twocolumn mode.]
 
+Right-side wrapping also works in \texttt{twocolumn} mode.
 
-\section{Examples}
+\exampletable{Two-column right}{twocolumn-right}{twocolumn-right.pdf}[
+  Right wrapping in two columns with more text.]
+
+In \texttt{twocolumn} mode, you can also use \texttt{position=middle} to centre
+the image within its column.  The contour is traced on both sides, so text
+wraps around the image from both the left and right within that column.
+
+\exampletable{Two-column middle}{twocolumn-middle}{twocolumn-middle.pdf}[
+  Middle wrapping in the second column of a two-column layout.]
 
 \subsection{Multiple images}
 
@@ -353,43 +380,6 @@ into the margin.
   into the margin.  Page~2 shows wrapping continues after the image
   height is exceeded.]
 
-
-\subsection{Two-column layout}
-
-\texttt{\string\wrapgraphics} works in \texttt{twocolumn} mode.
-The wrapping area is sized to the column width.
-
-\exampletable{Two-column left}{twocolumn}{twocolumn.pdf}[
-  Left wrapping in a two-column document.]
-
-
-\subsection{Two-column wide}
-
-With a large scale (or width) the image becomes wider than one column
-and reaches into the second column.
-
-% TODO: Сдвинь картинку чуть влево. Когда картинка шире столбца в какой-то строке, то в этой строке ничего не должно быть написано. 
-\exampletable{Two-column wide}{twocolumn-wide}{twocolumn-wide.pdf}[
-  Image spanning two columns in twocolumn mode.]
-
-
-\subsection{Two-column right}
-
-Right-side wrapping also works in \texttt{twocolumn} mode.
-
-\exampletable{Two-column right}{twocolumn-right}{twocolumn-right.pdf}[
-  Right wrapping in two columns with more text.]
-
-\subsection{Two-column middle}
-
-In \texttt{twocolumn} mode, \texttt{position=middle} centres the image within
-its column.  The contour is traced on both sides, so text wraps around the
-image from both the left and right within that column.
-
-\exampletable{Two-column middle}{twocolumn-middle}{twocolumn-middle.pdf}[
-  Middle wrapping in the second column of a two-column layout.]
-
-
 \subsection{Obstacles inside wrapping}
 
 Vertical-mode constructs such as display math, headings, and lists
@@ -405,6 +395,31 @@ accordingly.
 
 \exampletable{Lists inside wrap}{obstacle-list}{obstacle-list.pdf}[
   Bullet and enumerated lists inside a wrapped paragraph.]
+
+\section{Broken examples}
+
+These examples currently don't work.  Support for them is planned.
+
+\subsection{\texttt{anchor} (default: \texttt{here})}\label{macro:anchor}
+
+Where to anchor the image.  The value \texttt{here} (default) places it
+inline at the paragraph start.  The compass-point values
+(\texttt{nw}, \texttt{ne}, \texttt{sw}, \texttt{se}) pin it to the
+corresponding corner of the text area (north-west = top-left, etc.).
+
+
+\exampletable{Anchor \texttt{ne}}{anchor}{anchor.pdf}[
+  Image anchored to the top-right corner.]
+
+\exampletable{Anchor \texttt{se}}{anchor-se}{anchor-se.pdf}[
+  Image anchored to the bottom-right corner.]
+
+\exampletable{Anchor \texttt{nw} with shift}{anchor-shift}{anchor-shift.pdf}[
+  North-west anchor combined with \texttt{shift\_x=30pt, shift\_y=20pt}.]
+
+
+
+
 
 \section{Source files}
 
