@@ -43,6 +43,57 @@ MINTED_OPTS = "linenos,breaklines,breakautoindent=false"
 MINTED_OPTS_FMT = "linenos,breaklines,breakautoindent=false,firstnumber={}"
 
 
+import re
+
+
+def _escape_underscores(text: str) -> str:
+    """Escape underscores to \\_ except inside LaTeX constructs
+    that protect them (\\texttt, \\verb, \\mintinline) or inside
+    math mode ($...$).
+    """
+    result: list[str] = []
+    i = 0
+    in_math = False
+    while i < len(text):
+        # Toggle math mode on bare $ (not escaped \$)
+        if text[i] == "$" and (i == 0 or text[i - 1] != "\\"):
+            in_math = not in_math
+            result.append(text[i])
+            i += 1
+            continue
+        # Check for \texttt{...}
+        m = re.match(r"\\texttt(\{[^}]*\})", text[i:])
+        if m:
+            result.append(m.group(0))
+            i += m.end()
+            continue
+        # Check for \verbX...X
+        m = re.match(r"\\verb(.)", text[i:])
+        if m:
+            delim = m.group(1)
+            end = text.find(delim, i + m.end())
+            if end != -1:
+                result.append(text[i : end + 1])
+                i = end + 1
+                continue
+        # Check for \mintinline{lang}|...|
+        m = re.match(r"\\mintinline\{[^}]*\}(.)", text[i:])
+        if m:
+            delim = m.group(1)
+            end = text.find(delim, i + m.end())
+            if end != -1:
+                result.append(text[i : end + 1])
+                i = end + 1
+                continue
+        # Normal character
+        if text[i] == "_" and not in_math:
+            result.append("\\_")
+        else:
+            result.append(text[i])
+        i += 1
+    return "".join(result)
+
+
 def convert_line(line: str, cc: str) -> str:
     """Strip comment prefix from a doc line, preserving indentation."""
     line = line.rstrip("\n")
@@ -52,6 +103,7 @@ def convert_line(line: str, cc: str) -> str:
     rest = line[idx + len(cc):]
     if rest.startswith(" "):
         rest = rest[1:]
+    rest = _escape_underscores(rest)
     return rest
 
 
