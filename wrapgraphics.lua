@@ -1070,6 +1070,10 @@ function wrapgraphics_run()
 
   local position = tex.wr_position
   if shape.invert and position == "left" then position = "right" end
+  if position == "middle" and tex.wr_twocolumn ~= "true" then
+    tex.print("\\PackageError{wrapgraphics}{The 'middle' position requires twocolumn mode}{}")
+    return
+  end
   local anchor = tex.wr_anchor or "here"
   local shiftx_str = tex.wr_shiftx or "0pt"
   local shifty_str = tex.wr_shifty or "0pt"
