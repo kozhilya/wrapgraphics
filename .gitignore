@@ -16,3 +16,4 @@ build/
 _minted/
 *.toc
 wrapgraphics-sources.tex
+latexmkrc
