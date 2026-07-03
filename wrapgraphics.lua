@@ -23,6 +23,7 @@
 -- each paragraph break.
 --[/doc]
 local wr_remaining = nil  -- { images = { {..}, {..} }, bskip, parindent, start_page }
+local wr_deferred = nil
 local post_cb_installed = false
 
 -- Forward declarations (defined later, used by callbacks)
@@ -68,12 +69,15 @@ local function clear_on_page_change()
   if not wr_remaining.start_page then return false end
   if cur > wr_remaining.start_page then
     wr_remaining = nil
+    wr_deferred = nil
     return true
+  end
+  if wr_deferred and wr_deferred.start_page and cur > wr_deferred.start_page then
+    wr_deferred = nil
   end
   return false
 end
 
--- TODO: Добавь документацию.
 local function post_linebreak_filter(head, is_display)
   if not wr_remaining then return head end
   if clear_on_page_change() then return head end
@@ -82,14 +86,12 @@ local function post_linebreak_filter(head, is_display)
     wr_remaining = nil
     return head
   end
-  -- Measure actual line heights (formulas etc. take >1 bskip)
   local nlines = 0
   local para_h_pt = 0
   for line in node.traverse_id(node.id("hlist"), head) do
     nlines = nlines + 1
     local line_h, extra = wr_process_line(line, nlines, st)
     para_h_pt = para_h_pt + line_h
-    -- Tall lines (formulas) consume extra bskip units
     nlines = nlines + extra
   end
 
@@ -97,7 +99,6 @@ local function post_linebreak_filter(head, is_display)
   local vs = tex.vsize / 65536
 
   if pt + para_h_pt > vs then
-    -- Page break: advance by approximate count
     local on_page = math.max(1, math.floor((vs - pt) / st.bskip))
     for _, img in ipairs(st.images) do
       img.used = img.used + on_page
@@ -109,7 +110,6 @@ local function post_linebreak_filter(head, is_display)
   for _, img in ipairs(st.images) do
     img.used = img.used + nlines
   end
-  -- Remove finished images
   local alive = {}
   for _, img in ipairs(st.images) do
     if img.used < img.total and img.used * st.bskip < img.img_h then
@@ -121,6 +121,14 @@ local function post_linebreak_filter(head, is_display)
   else
     st.images = alive
   end
+
+  if wr_deferred then
+    wr_deferred.lines_since_start = wr_deferred.lines_since_start + nlines
+    if wr_deferred.lines_since_start >= wr_deferred.k_col + wr_deferred.total - 1 then
+      wr_deferred = nil
+    end
+  end
+
   return head
 end
 
@@ -204,6 +212,15 @@ end
 -- \textbf{Output:} none (writes into the \TeX{} stream via \texttt{tex.print})
 --[/doc]
 function wr_setup_parshape()
+  if wr_deferred then
+    local cur = status and status.page or 0
+    if cur ~= wr_deferred.start_page then
+      wr_deferred = nil
+    else
+      wr_inject_deferred(wr_deferred)
+    end
+  end
+
   if not wr_remaining then return end
   if clear_on_page_change() then return end
   local st = wr_remaining
@@ -211,16 +228,6 @@ function wr_setup_parshape()
     wr_remaining = nil
     return
   end
-  -- Resync img.used from the actual vertical position on the page.
-  -- post_linebreak_filter can only count hlist lines, so it under-counts
-  -- vertical-mode constructs (display math via \[...\], headings, \vbox
-  -- inserts) whose height never appears in the horizontal paragraph
-  -- list. By the time \everypar fires, the page builder has already
-  -- moved that material into the page, so (tex.pagetotal -
-  -- start_pagetotal) reflects the true consumed height. Convert it to
-  -- parshape line units and advance each image's used counter to match,
-  -- never going backwards (avoids re-applying a cutout to lines already
-  -- past the image).
   if st.start_pagetotal then
     local delta_pt = (tex.pagetotal - st.start_pagetotal) / 65536
     local target = math.floor(delta_pt / st.bskip + 0.5)
@@ -229,7 +236,6 @@ function wr_setup_parshape()
     end
     dbg("everypar resync: delta=" .. string.format("%.2f", delta_pt) .. "pt -> target=" .. target .. " used=" .. st.images[1].used)
   end
-  -- Compute remaining lines: max of all images
   local max_remaining = 0
   for _, img in ipairs(st.images) do
     local rem = img.total - img.used
@@ -276,6 +282,55 @@ function wr_setup_parshape()
   end
   dbg("everypar parshape: n=" .. n .. " used=" .. st.images[1].used .. " " .. str:sub(1, 80))
   tex.print(str)
+  return true
+end
+
+local function wr_inject_deferred(d)
+  local pos = d.lines_since_start
+  local col_break = d.k_col
+  local def_total = d.total
+  local bskip = d.bskip
+  local hsize = d.hsize_pt
+
+  if pos >= col_break + def_total - 1 then
+    return false
+  end
+
+  local pre = math.max(0, col_break - pos)
+  local def_avail = def_total - math.max(0, pos - col_break)
+  if def_avail < 0 then def_avail = 0 end
+
+  local parts = {}
+  local n = 0
+  for i = 1, pre do
+    parts[#parts + 1] = 0
+    parts[#parts + 1] = hsize
+    n = n + 1
+  end
+  local start = math.max(0, pos - col_break)
+  for i = start, start + def_avail - 1 do
+    if i < 0 or i >= def_total then
+      parts[#parts + 1] = 0
+      parts[#parts + 1] = hsize
+    else
+      local idx = i * 2 + 1
+      parts[#parts + 1] = d.lines[idx]
+      parts[#parts + 1] = d.lines[idx + 1]
+    end
+    n = n + 1
+  end
+  parts[#parts + 1] = 0
+  parts[#parts + 1] = hsize
+  n = n + 1
+
+  local str = "\\parshape " .. n .. " "
+  for _, v in ipairs(parts) do
+    str = str .. string.format("%.1f", v) .. "pt "
+  end
+  tex.print(str)
+  dbg("deferred: pos=" .. pos .. " col_break=" .. col_break .. " pre=" .. pre
+    .. " def_avail=" .. def_avail .. " start=" .. start .. " n=" .. n)
+  return true
 end
 
 --[doc]
@@ -736,25 +791,32 @@ local function wr_build_parshape(skip_count, hsize_pt, position, num_lines, hang
       par_n = par_n + 1
     end
   else
-    local max_indent = 0
-    local min_indent = 1e308
+    -- First pass: compute natural boundaries and find extremum for hang mode
+    local natural = {}
+    local extremum = (position == "right") and math.huge or 0
+    local extremum_idx = -1
     for i = skip_count, num_lines - 1 do
-      local boundary = wr_indent_for_line(i, position, geom, contour, sf)
+      local b = wr_indent_for_line(i, position, geom, contour, sf)
+      natural[i] = b
+      if position == "right" then
+        if b < extremum then extremum = b; extremum_idx = i end
+      else
+        if b > extremum then extremum = b; extremum_idx = i end
+      end
+    end
+    for i = skip_count, num_lines - 1 do
+      local boundary = natural[i]
+      if hang_mode and i > extremum_idx then
+        local y_top = i * geom.bskip_pt - geom.shifty_pt
+        if y_top < geom.gg_max_y_pt then
+          boundary = extremum
+        end
+      end
       local indent, width
       if position == "right" then
-        -- Right: text flows on the left, indent=0, width = boundary
-        if hang_mode then
-          if boundary < min_indent then min_indent = boundary end
-          boundary = min_indent
-        end
         indent = 0
         width = boundary
       else
-        -- Left: text flows on the right, indent = boundary
-        if hang_mode then
-          if boundary > max_indent then max_indent = boundary end
-          boundary = max_indent
-        end
         indent = boundary
         width = hsize_pt - boundary
       end
@@ -767,6 +829,157 @@ local function wr_build_parshape(skip_count, hsize_pt, position, num_lines, hang
   end
 
   -- Sentinel: full-width line after wrapping ends
+  par_lines_flat[#par_lines_flat + 1] = 0
+  par_lines_flat[#par_lines_flat + 1] = hsize_pt
+  par_n = par_n + 1
+
+  local line_parts = {}
+  for i = 1, par_n do
+    local idx = (i - 1) * 2 + 1
+    line_parts[#line_parts + 1] = string.format("%.1f", par_lines_flat[idx]) .. "pt " .. string.format("%.1f", par_lines_flat[idx + 1]) .. "pt"
+  end
+  local parshape_str = "\\parshape " .. par_n .. " " .. table.concat(line_parts, " ")
+
+  return par_n, par_lines_flat, parshape_str
+end
+
+--[doc]
+-- \subsubsection*{\texttt{wr\_indent\_for\_line\_col}}
+--
+-- Per-line indent/width for an arbitrary column with an explicit image
+-- placement offset. Generalises \texttt{wr\_indent\_for\_line} to the
+-- two-column case where the same contour is reused for a second column
+-- (the deferred cutout) and/or the image is not left/right-aligned to
+-- the column edge (e.g.\ \texttt{twocolumn-middle} centres the image on
+-- the inter-column gap).
+--
+-- \texttt{side="right"} means the image sits on the right of the column
+-- and text flows on its left: \texttt{indent=0}, \texttt{width} equals
+-- the image left boundary in column-local coordinates
+-- $\text{img\_offset} + x_{\text{left}}$.  \texttt{side="left"} is the
+-- mirror: text on the right, \texttt{indent = img\_offset + x\_right}.
+--
+-- The vertical sampling is identical to \texttt{wr\_indent\_for\_line}
+-- (same line index, same \texttt{bskip}/\texttt{shifty}), so a deferred
+-- cutout vertically matches the primary one when called with the same
+-- line range.
+--
+-- \textbf{Input:}
+-- \begin{itemize}
+-- \item \texttt{i} --- line index (0-based)
+-- \item \texttt{side} --- \texttt{"left"} or \texttt{"right"}
+-- \item \texttt{img\_offset} --- image left edge in column-local points
+-- \item \texttt{hsize\_pt} --- this column's width in points
+-- \item \texttt{geom}, \texttt{contour}, \texttt{sf} --- as elsewhere
+-- \end{itemize}
+-- \textbf{Output:} \texttt{indent}, \texttt{width} (points)
+--[/doc]
+local function wr_indent_for_line_col(i, side, img_offset, hsize_pt, geom, contour, sf)
+  local y_top = i * geom.bskip_pt - geom.shifty_pt
+  local y_bot = (i + 1) * geom.bskip_pt - geom.shifty_pt
+  if y_top >= geom.gg_max_y_pt then
+    return 0, hsize_pt
+  end
+  if y_bot <= geom.first_contour_y then
+    return 0, hsize_pt
+  end
+  local s_top = math.max(y_top, geom.first_contour_y)
+  local s_bot = math.min(y_bot, geom.gg_max_y_pt)
+  local best_x, found
+  for s = 1, 3 do
+    local ym = s_top + (s_bot - s_top) * (s - 0.5) / 3
+    local left_x, right_x, ok = wr_get_boundaries(contour, sf, ym)
+    if ok then
+      found = true
+      local bx = (side == "right") and left_x or right_x
+      if not best_x or (side == "right" and bx < best_x) or (side == "left" and bx > best_x) then
+        best_x = bx
+      end
+    end
+  end
+  if not found then
+    local ym = (s_top + s_bot) / 2
+    local left_x, right_x = wr_get_boundaries(contour, sf, ym)
+    best_x = (side == "right") and left_x or right_x
+  end
+  local boundary = img_offset + (best_x or 0)
+  if side == "right" then
+    local width = boundary
+    if width < 0 then width = 0 end
+    if width > hsize_pt then width = hsize_pt end
+    return 0, width
+  else
+    local indent = boundary
+    if indent < 0 then indent = 0 end
+    if indent > hsize_pt then indent = hsize_pt end
+    return indent, hsize_pt - indent
+  end
+end
+
+--[doc]
+-- \subsubsection*{\texttt{wr\_build\_parshape\_col}}
+--
+-- Builds a \texttt{\string\parshape} array for one column using
+-- \texttt{wr\_indent\_for\_line\_col}. Structurally identical to the
+-- single-column \texttt{wr\_build\_parshape} (skip lines + wrapped
+-- lines + sentinel) but driven by an explicit \texttt{side} and
+-- \texttt{img\_offset} instead of a \texttt{position} string.
+--
+-- \textbf{Output:} \texttt{par\_n}, \texttt{par\_lines\_flat},
+-- \texttt{parshape\_str} (as in \texttt{wr\_build\_parshape})
+--[/doc]
+local function wr_build_parshape_col(skip_count, hsize_pt, side, img_offset, num_lines, hang_mode, geom, contour, sf)
+  local par_n = 0
+  local par_lines_flat = {}
+
+  for i = 1, skip_count do
+    par_lines_flat[#par_lines_flat + 1] = 0
+    par_lines_flat[#par_lines_flat + 1] = hsize_pt
+    par_n = par_n + 1
+  end
+
+  -- First pass: compute natural values and find extremum for hang mode
+  local natural_indents = {}
+  local natural_widths = {}
+  local extremum_idx = -1
+  local extremum_val
+  if hang_mode then
+    extremum_val = (side == "right") and math.huge or 0
+  end
+  for i = skip_count, num_lines - 1 do
+    local indent, width = wr_indent_for_line_col(i, side, img_offset, hsize_pt, geom, contour, sf)
+    natural_indents[i] = indent
+    natural_widths[i] = width
+    if hang_mode then
+      if side == "right" then
+        if width < extremum_val then extremum_val = width; extremum_idx = i end
+      else
+        if indent > extremum_val then extremum_val = indent; extremum_idx = i end
+      end
+    end
+  end
+  for i = skip_count, num_lines - 1 do
+    local indent = natural_indents[i]
+    local width = natural_widths[i]
+    if hang_mode and i > extremum_idx then
+      local y_top = i * geom.bskip_pt - geom.shifty_pt
+      if y_top < geom.gg_max_y_pt then
+        if side == "right" then
+          width = extremum_val
+          indent = 0
+        else
+          indent = extremum_val
+          width = hsize_pt - indent
+        end
+      end
+    end
+    if width < 0 then width = 0 end
+    if indent < 0 then indent = 0 end
+    par_lines_flat[#par_lines_flat + 1] = indent
+    par_lines_flat[#par_lines_flat + 1] = width
+    par_n = par_n + 1
+  end
+
   par_lines_flat[#par_lines_flat + 1] = 0
   par_lines_flat[#par_lines_flat + 1] = hsize_pt
   par_n = par_n + 1
@@ -806,13 +1019,22 @@ end
 --[/doc]
 local function wr_build_image_box(position, anchor, geom, contour, sf, skip_count)
   local fmt4 = "%.4f"
-  local first_indent = wr_indent_for_line(0, position, geom, contour, sf)
+  local first_indent
+  if position == "twocolumn-middle" then
+    local img_offset = geom.column_width + geom.colsep_pt / 2 - geom.img_w_pt / 2 + geom.shiftx_pt
+    first_indent = (wr_indent_for_line_col(0, "right", img_offset, geom.hsize_pt, geom, contour, sf))
+  else
+    first_indent = wr_indent_for_line(0, position, geom, contour, sf)
+  end
   local rlap_indent = (geom.shifty_pt >= 0) and 0 or first_indent
 
   local hpos
   if anchor == "here" then
     if position == "middle" then
       local co = (geom.hsize_pt - geom.img_w_pt) / 2
+      hpos = "\\hskip " .. string.format(fmt4, co + geom.shiftx_pt - rlap_indent) .. "pt"
+    elseif position == "twocolumn-middle" then
+      local co = geom.column_width + geom.colsep_pt / 2 - geom.img_w_pt / 2
       hpos = "\\hskip " .. string.format(fmt4, co + geom.shiftx_pt - rlap_indent) .. "pt"
     elseif position == "right" then
       hpos = "\\hskip " .. string.format(fmt4, geom.hsize_pt - geom.gg_max_x + geom.shiftx_pt - rlap_indent) .. "pt"
@@ -866,7 +1088,13 @@ end
 --[/doc]
 local function wr_build_contour_overlay(imbox, contour, sf, position, contour_val, geom, skip_count)
   local fmt4 = "%.4f"
-  local first_indent = wr_indent_for_line(0, position, geom, contour, sf)
+  local first_indent
+  if position == "twocolumn-middle" then
+    local img_offset = geom.column_width + geom.colsep_pt / 2 - geom.img_w_pt / 2 + geom.shiftx_pt
+    first_indent = (wr_indent_for_line_col(0, "right", img_offset, geom.hsize_pt, geom, contour, sf))
+  else
+    first_indent = wr_indent_for_line(0, position, geom, contour, sf)
+  end
   local rlap_indent = (geom.shifty_pt >= 0) and 0 or first_indent
 
   local pdf_cmds = {}
@@ -887,6 +1115,9 @@ local function wr_build_contour_overlay(imbox, contour, sf, position, contour_va
   local hpos
   if position == "middle" then
     local co = (geom.hsize_pt - geom.img_w_pt) / 2
+    hpos = "\\hskip " .. string.format(fmt4, co + geom.shiftx_pt - rlap_indent) .. "pt"
+  elseif position == "twocolumn-middle" then
+    local co = geom.column_width + geom.colsep_pt / 2 - geom.img_w_pt / 2
     hpos = "\\hskip " .. string.format(fmt4, co + geom.shiftx_pt - rlap_indent) .. "pt"
   elseif position == "right" then
     hpos = "\\hskip " .. string.format(fmt4, geom.hsize_pt - geom.gg_max_x + geom.shiftx_pt - rlap_indent) .. "pt"
@@ -936,6 +1167,7 @@ end
 --[/doc]
 function wrapgraphics_run()
   wr_verbose = tex.wr_verbose == "true"
+  wr_deferred = nil
   texio.write("term and log", "[wrapgraphics] processing " .. tex.wr_filepath .. " (position=" .. tex.wr_position .. ") ")
 
   local img = tex.wr_filepath
@@ -964,11 +1196,17 @@ function wrapgraphics_run()
 
   local position = tex.wr_position
   if shape.invert and position == "left" then position = "right" end
+  if position == "middle" and tex.wr_twocolumn ~= "true" then
+    tex.print("\\PackageError{wrapgraphics}{The 'middle' position requires twocolumn mode}{}")
+    return
+  end
   local anchor = tex.wr_anchor or "here"
   local shiftx_str = tex.wr_shiftx or "0pt"
   local shifty_str = tex.wr_shifty or "0pt"
   local shiftx_pt = tonumber(shiftx_str:match("(-?[0-9.]+)")) or 0
   local shifty_pt = tonumber(shifty_str:match("(-?[0-9.]+)")) or 0
+  local colsep_str = tex.wr_columnsep or "0pt"
+  local colsep_pt = tonumber(colsep_str:match("(-?[0-9.]+)")) or 0
 
   dbg("image=" .. img .. " " .. shape.width .. "x" .. shape.height .. " dpi=" .. shape.dpi)
   dbg("contour: " .. #shape.contour .. " points, invert=" .. tostring(shape.invert))
@@ -1000,6 +1238,8 @@ function wrapgraphics_run()
     img_w_pt      = img_w_pt,
     img_h_pt      = img_h_pt,
     hsize_pt      = hsize_pt,
+    column_width  = hsize_pt,
+    colsep_pt     = colsep_pt,
     bskip_pt      = bskip_pt,
     first_contour_y = first_contour_y,
     gg_min_x      = bounds.min_x_pt,
@@ -1035,8 +1275,33 @@ function wrapgraphics_run()
   local max_fit = math.max(2, math.floor((vsize_pt - pagetotal_pt - 0.5 * bskip_pt) / bskip_pt))
   num_lines = math.max(0, math.min(num_lines, max_fit - 1))
 
-  local par_n, par_lines_flat, parshape_str = wr_build_parshape(
-    skip_count, hsize_pt, position, num_lines, hang_mode, geom, shape.contour, sf)
+  local par_n, par_lines_flat, parshape_str, def_par_n, def_par_lines_flat
+  local is_twocolumn = (position == "twocolumn-wide" or position == "twocolumn-middle")
+  if is_twocolumn then
+    local side_lc, img_off_lc, side_rc, img_off_rc
+    if position == "twocolumn-wide" then
+      side_lc = "left"
+      img_off_lc = -bounds.min_x_pt + shiftx_pt
+      side_rc = "left"
+      img_off_rc = img_off_lc - (hsize_pt + colsep_pt)
+    else
+      local gap_center = hsize_pt + colsep_pt / 2
+      local img_center_off = gap_center - img_w_pt / 2
+      side_lc = "right"
+      img_off_lc = img_center_off + shiftx_pt
+      side_rc = "left"
+      img_off_rc = img_center_off - (hsize_pt + colsep_pt) + shiftx_pt
+    end
+    par_n, par_lines_flat, parshape_str = wr_build_parshape_col(
+      skip_count, hsize_pt, side_lc, img_off_lc, num_lines, hang_mode, geom, shape.contour, sf)
+    def_par_n, def_par_lines_flat = wr_build_parshape_col(
+      skip_count, hsize_pt, side_rc, img_off_rc, num_lines, hang_mode, geom, shape.contour, sf)
+    dbg("twocolumn " .. position .. ": left column side=" .. side_lc
+      .. " deferred side=" .. side_rc .. " offset_rc=" .. string.format("%.2f", img_off_rc))
+  else
+    par_n, par_lines_flat, parshape_str = wr_build_parshape(
+      skip_count, hsize_pt, position, num_lines, hang_mode, geom, shape.contour, sf)
+  end
 
   local imbox = wr_build_image_box(position, anchor, geom, shape.contour, sf, skip_count)
 
@@ -1064,15 +1329,26 @@ function wrapgraphics_run()
     img_h    = bounds.max_y_pt + shifty_pt,
   }
 
+  if is_twocolumn and def_par_n then
+    local k_col = math.floor(vsize_pt / bskip_pt)
+    wr_deferred = {
+      lines = def_par_lines_flat,
+      total = def_par_n,
+      bskip = bskip_pt,
+      hsize_pt = hsize_pt,
+      k_col = k_col,
+      lines_since_start = 0,
+      pos = position,
+      start_page = status and status.page or 0,
+    }
+    dbg("deferred cutout stored: total=" .. def_par_n .. " lines, k_col=" .. k_col
+      .. ", vsize=" .. string.format("%.1f", vsize_pt))
+  end
+
   if wr_remaining then
-    -- Add to existing multi-image state
-    wr_remaining.images[#wr_remaining.images + 1] = img_state
-    -- Inject the image placement (appended to current paragraph)
     tex.print(imbox)
-    -- Inject new combined parshape for remaining lines
     wr_setup_parshape()
   else
-    -- First image — create new state
     wr_remaining = {
       images    = { img_state },
       bskip     = bskip_pt,
