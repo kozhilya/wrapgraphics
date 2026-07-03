@@ -196,6 +196,54 @@ wr_process_line = function(line, nlines, st)
   return line_h, extra
 end
 
+local function wr_inject_deferred(d)
+  local pos = d.lines_since_start
+  local col_break = d.k_col
+  local def_total = d.total
+  local bskip = d.bskip
+  local hsize = d.hsize_pt
+
+  if pos >= col_break + def_total - 1 then
+    return false
+  end
+
+  local pre = math.max(0, col_break - pos)
+  local def_avail = def_total - math.max(0, pos - col_break)
+  if def_avail < 0 then def_avail = 0 end
+
+  local parts = {}
+  local n = 0
+  for i = 1, pre do
+    parts[#parts + 1] = 0
+    parts[#parts + 1] = hsize
+    n = n + 1
+  end
+  local start = math.max(0, pos - col_break)
+  for i = start, start + def_avail - 1 do
+    if i < 0 or i >= def_total then
+      parts[#parts + 1] = 0
+      parts[#parts + 1] = hsize
+    else
+      local idx = i * 2 + 1
+      parts[#parts + 1] = d.lines[idx]
+      parts[#parts + 1] = d.lines[idx + 1]
+    end
+    n = n + 1
+  end
+  parts[#parts + 1] = 0
+  parts[#parts + 1] = hsize
+  n = n + 1
+
+  local str = "\\parshape " .. n .. " "
+  for _, v in ipairs(parts) do
+    str = str .. string.format("%.1f", v) .. "pt "
+  end
+  tex.print(str)
+  dbg("deferred: pos=" .. pos .. " col_break=" .. col_break .. " pre=" .. pre
+    .. " def_avail=" .. def_avail .. " start=" .. start .. " n=" .. n)
+  return true
+end
+
 --[doc]
 -- \subsection*{\texttt{wr\_setup\_parshape}}
 --
@@ -282,54 +330,6 @@ function wr_setup_parshape()
   end
   dbg("everypar parshape: n=" .. n .. " used=" .. st.images[1].used .. " " .. str:sub(1, 80))
   tex.print(str)
-  return true
-end
-
-local function wr_inject_deferred(d)
-  local pos = d.lines_since_start
-  local col_break = d.k_col
-  local def_total = d.total
-  local bskip = d.bskip
-  local hsize = d.hsize_pt
-
-  if pos >= col_break + def_total - 1 then
-    return false
-  end
-
-  local pre = math.max(0, col_break - pos)
-  local def_avail = def_total - math.max(0, pos - col_break)
-  if def_avail < 0 then def_avail = 0 end
-
-  local parts = {}
-  local n = 0
-  for i = 1, pre do
-    parts[#parts + 1] = 0
-    parts[#parts + 1] = hsize
-    n = n + 1
-  end
-  local start = math.max(0, pos - col_break)
-  for i = start, start + def_avail - 1 do
-    if i < 0 or i >= def_total then
-      parts[#parts + 1] = 0
-      parts[#parts + 1] = hsize
-    else
-      local idx = i * 2 + 1
-      parts[#parts + 1] = d.lines[idx]
-      parts[#parts + 1] = d.lines[idx + 1]
-    end
-    n = n + 1
-  end
-  parts[#parts + 1] = 0
-  parts[#parts + 1] = hsize
-  n = n + 1
-
-  local str = "\\parshape " .. n .. " "
-  for _, v in ipairs(parts) do
-    str = str .. string.format("%.1f", v) .. "pt "
-  end
-  tex.print(str)
-  dbg("deferred: pos=" .. pos .. " col_break=" .. col_break .. " pre=" .. pre
-    .. " def_avail=" .. def_avail .. " start=" .. start .. " n=" .. n)
   return true
 end
 
