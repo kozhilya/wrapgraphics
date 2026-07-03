@@ -167,4 +167,8 @@
   \ignorespaces
 }
 
+% Ensure parshape is updated after every paragraph, even when
+% \subsection* or other commands reset \everypar via \@afterheading.
+\AddToHook{para/begin}{\directlua{wr_setup_parshape()}}
+
 \endinput
