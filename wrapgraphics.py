@@ -26,7 +26,7 @@ Point = tuple[float, float]
 # (\texttt{os.execute}) and produces an SVG file containing the
 # traced contour.
 #
-# \subsection*{Pipeline}
+# \subsubsection{Pipeline}
 # \begin{enumerate}
 #   \item Load the image, extract the alpha channel.
 #   \item Threshold the alpha at a given level (0--1).
@@ -45,7 +45,7 @@ Point = tuple[float, float]
 
 
 #[doc]
-# \subsection*{\texttt{load\_alpha}}
+# \subsubsection{\texttt{load\_alpha}}
 # Opens the image and returns the alpha channel as a grayscale
 # \texttt{PIL.Image}.  The image is converted to RGBA first so the
 # alpha channel is guaranteed to exist.
@@ -56,7 +56,7 @@ def load_alpha(image_path: str) -> Image.Image:
 
 
 #[doc]
-# \subsection*{\texttt{threshold}}
+# \subsubsection{\texttt{threshold}}
 # Converts the alpha channel to a binary mask.  Pixels with an alpha
 # value greater or equal to \texttt{level * 255} are considered opaque.
 #[/doc]
@@ -66,7 +66,7 @@ def threshold(alpha: Image.Image, level: float) -> Image.Image:
 
 
 #[doc]
-# \subsection*{\texttt{dilate\_fast}}
+# \subsubsection{\texttt{dilate\_fast}}
 # Binary dilation by \texttt{N} pixels using an integral-image
 # (summed-area table) approach.  Each pixel is set to white if any
 # pixel within a \texttt{(2N+1) x (2N+1)} window in the original
@@ -99,7 +99,7 @@ def dilate_fast(mask: Image.Image, padding: int) -> Image.Image:
 
 
 #[doc]
-# \subsection*{\texttt{smooth\_contour}}
+# \subsubsection{\texttt{smooth\_contour}}
 # Applies Gaussian smoothing to the contour point list.  Each point is
 # replaced by a weighted average of its neighbours within a
 # \texttt{2*radius+1} window.  The circular nature of the contour is
@@ -126,7 +126,7 @@ def smooth_contour(points: list[Point], sigma: float) -> list[Point]:
 
 
 #[doc]
-# \subsection*{\texttt{trace\_contour}}
+# \subsubsection{\texttt{trace\_contour}}
 # The core contour-tracing function.  It implements the Moore--Neighbor
 # boundary following algorithm:
 #
@@ -195,7 +195,7 @@ def trace_contour(
 
 
 #[doc]
-# \subsection*{\texttt{\_find\_start}}
+# \subsubsection{\texttt{\_find\_start}}
 # Scans the binary image row-by-row and returns the coordinates of the
 # first white (opaque) pixel.  Returns \texttt{None} for an empty mask.
 #[/doc]
@@ -208,7 +208,7 @@ def _find_start(pixels, w, h) -> tuple[int, int] | None:
 
 
 #[doc]
-# \subsection*{\texttt{\_simplify} (Ramer--Douglas--Peucker)}
+# \subsubsection{\texttt{\_simplify} (Ramer--Douglas--Peucker)}
 # Reduces the number of contour points while preserving the overall
 # shape.  The algorithm recursively subdivides the polyline: if a point
 # is farther than \texttt{epsilon} from the line segment connecting the
@@ -248,7 +248,7 @@ def _simplify(points: list[Point], epsilon: float = 1.0) -> list[Point]:
 
 
 #[doc]
-# \subsection*{\texttt{write\_svg}}
+# \subsubsection{\texttt{write\_svg}}
 # Writes the contour as an SVG file.  The SVG contains:
 # \begin{itemize}
 #   \item The original image embedded via \texttt{<image>}.
@@ -298,7 +298,7 @@ def write_svg(
 
 
 #[doc]
-# \subsection*{CLI entry points}
+# \subsubsection{CLI entry points}
 # \texttt{parse\_args} defines the command-line interface using
 # \texttt{argparse}.  The \texttt{main} function orchestrates the full
 # pipeline: load, threshold, dilate, trace, smooth, and write SVG.

@@ -53,6 +53,11 @@ make doc
 
 - **Commit after every iteration of changes** — each logical batch of edits (fix, feature, refactor) must be committed before starting the next one. Use descriptive commit messages in English.
 
+## Known issues / next steps
+
+- **twocolumn-middle** — needs re-verification after the `wr_deferred.lines_since_start` fix (it was not tested, only `twocolumn-wide` was verified).
+- **Arbitrary vertical anomalies** — the current obstacle handling (`\subsection*`, `\item`, formulas) works via `\AddToHook{para/begin}`, but other LaTeX constructs that reset `\everypar` or break the parshape assumption may still fail. A dedicated example demonstrating generic vertical anomaly support is needed.
+
 ## Important details
 
 - Contour is traced on the **dilated** alpha threshold mask (padding argument), so the text keeps `N` px clearance from the image boundary

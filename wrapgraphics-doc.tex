@@ -29,14 +29,15 @@
   \begin{tblr}{
     colspec={X[1,l] Q[c,m,wd=\previewwidth]},
     rowspec={Q[m] Q[m] Q[m]},
+    column{2}={colsep=0pt},
     cells={blue9},
     cell{1}{1}={blue7,font=\bfseries},
-    cell{1}{2}={valign=m},%abovespace=0pt,belowspace=0pt,leftspace=0pt},
+    cell{1}{2}={white,valign=m},%abovespace=0pt,belowspace=0pt,leftspace=0pt},
     vlines,hlines,
     width=\textwidth,
     % colsep=0pt,
   }
-    #1 & \SetCell[r=3]{}\colorbox{white}{\includegraphics[width=\previewwidth]{example/#3}}\\
+    #1 & \SetCell[r=3]{} \includegraphics[width=\previewwidth]{example/#3}\\
     #4 \\
     \begin{minipage}{\linewidth}
     \inputminted[breaklines,breakautoindent=false]{latex}{example/snippets/_code-#2.tex}
@@ -50,20 +51,21 @@
   \begin{tblr}{
     colspec={X[1,l] Q[c,m,wd=\pairpreviewwidth]},
     rowspec={Q[m] Q[m] Q[m]},
+    column{2}={colsep=0pt},
     cells={blue9},
     cell{1}{1}={blue7,font=\bfseries},
-    cell{1}{2}={valign=m},
+    cell{1}{2}={white,valign=m},
     vlines,hlines,
     width=\textwidth,
   }
-    #1 & \SetCell[r=3]{}\colorbox{white}{%
+    #1 & \SetCell[r=3]{}%
       \begin{minipage}{\linewidth}
         \centering
         \includegraphics[width=0.5\textwidth]{example/#3}%
         % \hfill
         \includegraphics[page=2,width=0.5\textwidth]{example/#3}%
       \end{minipage}
-    }\\
+    \\
     #4 \\
     \begin{minipage}{\linewidth}
     \inputminted[breaklines,breakautoindent=false]{latex}{example/snippets/_code-#2.tex}

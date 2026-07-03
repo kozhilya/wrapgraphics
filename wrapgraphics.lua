@@ -44,7 +44,7 @@ local function dbg(msg)
 end
 
 --[doc]
--- \subsection*{Page-break handling}
+-- \subsubsection{Page-break handling}
 -- 
 -- When the wrapping paragraph spans a page break, the shape must be
 -- split across pages. \texttt{clear\_on\_page\_change()} detects page
@@ -249,7 +249,7 @@ local function wr_inject_deferred(d)
 end
 
 --[doc]
--- \subsection*{\texttt{wr\_setup\_parshape}}
+-- \subsubsection{\texttt{wr\_setup\_parshape}}
 --
 -- Called from \verb|\everypar| on every new paragraph line when there
 -- are remaining wrapped lines. It slices the next chunk of
@@ -1139,7 +1139,7 @@ local function wr_build_contour_overlay(imbox, contour, sf, position, contour_va
 end
 
 --[doc]
--- \subsection*{\texttt{wrapgraphics\_run}}
+-- \subsubsection{\texttt{wrapgraphics\_run}}
 --
 -- Main entry point, called once per \verb|\wrapgraphics| invocation
 -- from \verb|\directlua|. Orchestrates the full pipeline:

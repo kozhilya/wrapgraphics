@@ -188,7 +188,7 @@ def main() -> int:
     for path, lang in pairs:
         fname = os.path.basename(path)
         content = extract_file(path, lang).strip()
-        sections.append(f"\\section*{{{fname}}}\n\n{content}")
+        sections.append(f"\\subsection{{{fname}}}\n\n{content}")
 
     output = "\n\n".join(sections) + "\n"
 
