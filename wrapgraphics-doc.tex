@@ -249,6 +249,18 @@ to the core of the image.
   High threshold: text can come closer to the core.]
 
 
+\subsection{\texttt{smooth} (default: \texttt{0})}\label{macro:smooth}
+
+Gaussian smoothing sigma applied to the traced contour (in pixels).
+A sigma greater than zero smooths the contour path, reducing jagged
+edges in the text wrap.  Values of 2--4 typically produce a noticeably
+smoother text boundary without losing the overall shape.
+
+\exampletable{Smooth 4}{smooth}{smooth.pdf}[
+  Contour smoothed with sigma=4; the text boundary is noticeably
+  smoother than the unsmoothed default.]
+
+
 \subsection{\texttt{scale} (default: \texttt{1})}\label{macro:scale}
 
 Scale factor passed to \mintinline{latex}|\includegraphics|.  Overridden
@@ -397,6 +409,12 @@ accordingly.
 
 \exampletable{Lists inside wrap}{obstacle-list}{obstacle-list.pdf}[
   Bullet and enumerated lists inside a wrapped paragraph.]
+
+\exampletable{Mixed anomalies inside wrap}{obstacle-anomaly}{obstacle-anomaly.pdf}[
+  A heading, list, display math, and theorem environment inside a single
+  wrapped paragraph.  \texttt{\string\AddToHook\{para/begin\}} handles
+  all constructs that reset \texttt{\string\everypar} via
+  \texttt{\string\@afterheading}.]
 
 \section{Broken examples}
 
