@@ -256,9 +256,21 @@ A sigma greater than zero smooths the contour path, reducing jagged
 edges in the text wrap.  Values of 2--4 typically produce a noticeably
 smoother text boundary without losing the overall shape.
 
-\exampletable{Smooth 4}{smooth}{smooth.pdf}[
+\exampletable{Smooth 4}{smooth-4}{smooth-4.pdf}[
   Contour smoothed with sigma=4; the text boundary is noticeably
   smoother than the unsmoothed default.]
+
+\begin{tblr}{colspec={X[c] X[c] X[c] X[c]}}
+  \texttt{smooth=0}                      &
+  \texttt{smooth=2}                      &
+  \texttt{smooth=4}                      &
+  \texttt{smooth=10}                       \\
+  \includegraphics{example/smooth-0.pdf} &
+  \includegraphics{example/smooth-2.pdf} &
+  \includegraphics{example/smooth-4.pdf} &
+  \includegraphics{example/smooth-10.pdf}
+\end{tblr}
+
 
 
 \subsection{\texttt{scale} (default: \texttt{1})}\label{macro:scale}

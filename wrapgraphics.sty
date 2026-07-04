@@ -48,6 +48,7 @@
 \def\wr@verbose{false}
 \DeclareOptionX{verbose}{\def\wr@verbose{true}}
 \def\wr@contour@false{false}
+\def\wr@contour@true{true}
 \def\wr@contour@default{false}
 \DeclareOptionX{contour}[red]{\def\wr@contour@default{#1}}
 \ProcessOptionsX\relax
@@ -88,9 +89,9 @@
   \edef\wr@shifty{\the\wr@tmpdimen}%
 }
 \define@key{wr}{anchor}{\def\wr@anchor{#1}}
-\define@key{wr}{contour}{%
+\define@key{wr}{contour}[true]{%
   \def\wr@contour{#1}%
-  \if\wr@contour true\def\wr@contour{red}\fi
+  \ifx\wr@contour\wr@contour@true\def\wr@contour{red}\fi
 }
 
 %[doc]
