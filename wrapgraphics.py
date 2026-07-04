@@ -47,13 +47,14 @@ PNG_SIG = b"\x89PNG\r\n\x1a\n"
 # \texttt{(type, data)} where \texttt{type} is the 4-byte type code
 # (e.g.\ \texttt{b'IHDR'}) and \texttt{data} is the chunk payload.
 #
-# \textbf{Args:}
+# \paragraph{Arguments:}
 # \begin{itemize}
-#   \item[\texttt{path}] --- path to the PNG file
+#   \item \mintinline{python}|path: str| --- path to the PNG file;
 # \end{itemize}
-# \textbf{Returns:} list of \texttt{(type, data)} pairs.
+# \paragraph{Returns:} \mintinline{python}|list[tuple[bytes, bytes]]| ---
+# list of \texttt{(type, data)} pairs.
 #
-# \textbf{Raises:}
+# \paragraph{Raises:}
 # \texttt{ValueError} if the file does not start with a valid PNG
 # signature.
 #[/doc]
@@ -82,12 +83,15 @@ def _read_png_chunks(path: str) -> list[tuple[bytes, bytes]]:
 #
 # Finds a chunk by type in a list of PNG chunks.
 #
-# \textbf{Args:}
+# \paragraph{Arguments:}
 # \begin{itemize}
-#   \item[\texttt{chunks}] --- list of \texttt{(type, data)} pairs
-#   \item[\texttt{chunk\_type}] --- 4-byte type to find (e.g.\ \texttt{b'IHDR'})
+#   \item \mintinline{python}|chunks: list[tuple[bytes, bytes]]| ---
+#         list of \texttt{(type, data)} pairs;
+#   \item \mintinline{python}|chunk_type: bytes| --- 4-byte type to
+#         find (e.g. \texttt{b'IHDR'});
 # \end{itemize}
-# \textbf{Returns:} chunk data, or \texttt{None} if not found.
+# \paragraph{Returns:} \mintinline{python}|bytes | None| --- chunk data,
+# or \texttt{None} if not found.
 #[/doc]
 def _find_chunk(
     chunks: list[tuple[bytes, bytes]], chunk_type: bytes,
@@ -104,14 +108,18 @@ def _find_chunk(
 # Parses and validates the IHDR chunk.  Checks compression method,
 # filter method, interlace flag, and bit depth.
 #
-# \textbf{Args:}
+# \paragraph{Arguments:}
 # \begin{itemize}
-#   \item[\texttt{ihdr\_data}] --- raw IHDR chunk payload (13 bytes)
-#   \item[\texttt{path}] --- original file path (for error messages)
+#   \item \mintinline{python}|ihdr_data: bytes| --- raw IHDR chunk
+#         payload (13 bytes);
+#   \item \mintinline{python}|path: str| --- original file path
+#         (for error messages);
 # \end{itemize}
-# \textbf{Returns:} tuple \texttt{(width, height, bit\_depth, color\_type)}.
+# \paragraph{Returns:}
+# \mintinline{python}|tuple[int, int, int, int]| ---
+# \texttt{(width, height, bit\_depth, color\_type)}.
 #
-# \textbf{Raises:}
+# \paragraph{Raises:}
 # \texttt{ValueError} if any IHDR field is unsupported or invalid.
 #[/doc]
 def _validate_ihdr(ihdr_data: bytes, path: str) -> tuple[int, int, int, int]:
@@ -139,11 +147,13 @@ def _validate_ihdr(ihdr_data: bytes, path: str) -> tuple[int, int, int, int]:
 #
 # Returns the number of bytes per pixel for a given PNG colour type.
 #
-# \textbf{Args:}
-# \texttt{color\_type} --- PNG colour type (0, 2, 4, or 6).
-#
-# \textbf{Returns:} bytes per pixel (1 for Grayscale, 3 for RGB,
-# 2 for Grayscale+Alpha, 4 for RGBA).
+# \paragraph{Arguments:}
+# \begin{itemize}
+#   \item \mintinline{python}|color_type: int| --- PNG colour type
+#         (0, 2, 4, or 6);
+# \end{itemize}
+# \paragraph{Returns:} \mintinline{python}|int| --- bytes per pixel
+# (1 for Grayscale, 3 for RGB, 2 for Grayscale+Alpha, 4 for RGBA).
 #[/doc]
 def _bpp_for_color_type(color_type: int) -> int:
     return {0: 1, 2: 3, 4: 2, 6: 4}.get(color_type, 1)
@@ -155,10 +165,16 @@ def _bpp_for_color_type(color_type: int) -> int:
 # Concatenates all IDAT chunks and decompresses them with
 # \texttt{zlib}.
 #
-# \textbf{Args:}
-# \texttt{chunks} --- list of \texttt{(type, data)} pairs.
+# \paragraph{Arguments:}
+# \begin{itemize}
+#   \item \mintinline{python}|chunks: list[tuple[bytes, bytes]]| ---
+#         list of \texttt{(type, data)} pairs;
+# \end{itemize}
+# \paragraph{Returns:} \mintinline{python}|bytes| --- decompressed raw
+# pixel data.
 #
-# \textbf{Returns:} decompressed raw pixel data.
+# \paragraph{Raises:}
+# \texttt{zlib.error} if the compressed data is corrupt.
 #[/doc]
 def _decompress_idat(chunks: list[tuple[bytes, bytes]]) -> bytes:
     idat_data = b""
@@ -181,14 +197,21 @@ def _decompress_idat(chunks: list[tuple[bytes, bytes]]) -> bytes:
 #   \item Paeth: $Filt(x) = Raw(x) - \text{Paeth}(Raw(x - bpp), Prior(x), Prior(x - bpp))$
 # \end{enumerate}
 #
-# \textbf{Args:}
+# \paragraph{Arguments:}
 # \begin{itemize}
-#   \item[\texttt{row\_data}] --- raw filtered row (without filter byte)
-#   \item[\texttt{prev\_row}] --- previous row (decompressed)
-#   \item[\texttt{bpp}] --- bytes per pixel
-#   \item[\texttt{filter\_type}] --- PNG filter type (0--4)
+#   \item \mintinline{python}|row_data: bytearray| --- raw filtered row
+#         (without filter byte);
+#   \item \mintinline{python}|prev_row: bytearray| --- previous row
+#         (decompressed);
+#   \item \mintinline{python}|bpp: int| --- bytes per pixel;
+#   \item \mintinline{python}|filter_type: int| --- PNG filter type
+#         (0--4);
 # \end{itemize}
-# \textbf{Returns:} decompressed row data.
+# \paragraph{Returns:} \mintinline{python}|bytearray| --- decompressed
+# row data.
+#
+# \paragraph{Raises:}
+# \texttt{ValueError} if \texttt{filter\_type} is not in 0--4.
 #[/doc]
 def _apply_png_filter_row(
     row_data: bytearray, prev_row: bytearray, bpp: int, filter_type: int,
@@ -236,14 +259,16 @@ def _apply_png_filter_row(
 #
 # Applies PNG filters to all rows of the decompressed image data.
 #
-# \textbf{Args:}
+# \paragraph{Arguments:}
 # \begin{itemize}
-#   \item[\texttt{raw}] --- decompressed image data (filter byte + pixels per row)
-#   \item[\texttt{w}] --- image width in pixels
-#   \item[\texttt{h}] --- image height in pixels
-#   \item[\texttt{bpp}] --- bytes per pixel
+#   \item \mintinline{python}|raw: bytes| --- decompressed image data
+#         (filter byte + pixels per row);
+#   \item \mintinline{python}|w: int| --- image width in pixels;
+#   \item \mintinline{python}|h: int| --- image height in pixels;
+#   \item \mintinline{python}|bpp: int| --- bytes per pixel;
 # \end{itemize}
-# \textbf{Returns:} list of decompressed rows, each as \texttt{bytearray}.
+# \paragraph{Returns:} \mintinline{python}|list[bytearray]| --- list of
+# decompressed rows.
 #[/doc]
 def _apply_png_filters(
     raw: bytes, w: int, h: int, bpp: int,
@@ -265,15 +290,17 @@ def _apply_png_filters(
 # Converts raw pixel rows to a flat RGBA byte array.  Colour types
 # without alpha (0, 2) get fully opaque alpha ($255$).
 #
-# \textbf{Args:}
+# \paragraph{Arguments:}
 # \begin{itemize}
-#   \item[\texttt{rows}] --- list of decompressed row data
-#   \item[\texttt{w}] --- image width
-#   \item[\texttt{h}] --- image height
-#   \item[\texttt{color\_type}] --- PNG colour type
-#   \item[\texttt{bpp}] --- bytes per pixel
+#   \item \mintinline{python}|rows: list[bytearray]| --- list of
+#         decompressed row data;
+#   \item \mintinline{python}|w: int| --- image width;
+#   \item \mintinline{python}|h: int| --- image height;
+#   \item \mintinline{python}|color_type: int| --- PNG colour type;
+#   \item \mintinline{python}|bpp: int| --- bytes per pixel;
 # \end{itemize}
-# \textbf{Returns:} \texttt{bytearray} of RGBA pixel data, length $w \times h \times 4$.
+# \paragraph{Returns:} \mintinline{python}|bytearray| --- RGBA pixel
+# data, length $w \times h \times 4$.
 #[/doc]
 def _pack_rgba(
     rows: list[bytearray], w: int, h: int, color_type: int, bpp: int,
@@ -307,14 +334,16 @@ def _pack_rgba(
 #
 # Uses only \texttt{struct} and \texttt{zlib} from the standard library.
 #
-# \textbf{Args:}
-# \texttt{path} --- path to the PNG file.
-#
-# \textbf{Returns:}
+# \paragraph{Arguments:}
+# \begin{itemize}
+#   \item \mintinline{python}|path: str| --- path to the PNG file;
+# \end{itemize}
+# \paragraph{Returns:}
+# \mintinline{python}|tuple[int, int, bytearray]| ---
 # \texttt{(width, height, flat\_rgba)} where \texttt{flat\_rgba}
-# is a \texttt{bytearray} in row-major order (4 bytes per pixel).
+# is RGBA pixel data in row-major order (4 bytes per pixel).
 #
-# \textbf{Supported:}
+# \paragraph{Supported:}
 # colour types 0 (Grayscale), 2 (RGB), 4 (Grayscale+Alpha),
 # 6 (RGBA) with bit depth~8.  Indexed colour (type~3) raises an error.
 #[/doc]
@@ -337,11 +366,16 @@ def _read_png_rgba(path: str) -> tuple[int, int, bytearray]:
 # Reads metadata from a PNG header without full decompression.
 # Extracts width, height, and DPI (from the \texttt{pHYs} chunk).
 #
-# \textbf{Args:}
-# \texttt{path} --- path to the PNG file.
-#
-# \textbf{Returns:}
+# \paragraph{Arguments:}
+# \begin{itemize}
+#   \item \mintinline{python}|path: str| --- path to the PNG file;
+# \end{itemize}
+# \paragraph{Returns:}
+# \mintinline{python}|tuple[int, int, float]| ---
 # \texttt{(width, height, dpi)}.
+#
+# \paragraph{Raises:}
+# \texttt{ValueError} if the file is not a valid PNG or has no IHDR.
 #[/doc]
 def _read_png_meta(path: str) -> tuple[int, int, float]:
     w, h, dpi = 0, 0, 72.0
@@ -383,10 +417,12 @@ def _read_png_meta(path: str) -> tuple[int, int, float]:
 # pixel values ($0$--$255$).  Images without an alpha channel get a
 # fully opaque ($255$) mask.
 #
-# \textbf{Args:}
-# \texttt{image\_path} --- path to the PNG file.
-#
-# \textbf{Returns:}
+# \paragraph{Arguments:}
+# \begin{itemize}
+#   \item \mintinline{python}|image_path: str| --- path to the PNG file;
+# \end{itemize}
+# \paragraph{Returns:}
+# \mintinline{python}|tuple[int, int, list[int]]| ---
 # \texttt{(width, height, flat\_alpha)} where \texttt{flat\_alpha}
 # is a \texttt{list[int]} of length $w \times h$.
 #[/doc]
@@ -403,13 +439,16 @@ def load_alpha(image_path: str) -> tuple[int, int, list[int]]:
 # $\text{alpha} \ge \text{level} \times 255$ are set to $255$
 # (opaque); all others are set to $0$.
 #
-# \textbf{Args:}
+# \paragraph{Arguments:}
 # \begin{itemize}
-#   \item[\texttt{pixels}] --- flat alpha list of length $w \times h$
-#   \item[\texttt{w}, \texttt{h}] --- image dimensions
-#   \item[\texttt{level}] --- threshold in $[0, 1]$
+#   \item \mintinline{python}|pixels: list[int]| --- flat alpha list
+#         of length $w \times h$;
+#   \item \mintinline{python}|w: int|, \mintinline{python}|h: int| ---
+#         image dimensions;
+#   \item \mintinline{python}|level: float| --- threshold in $[0, 1]$;
 # \end{itemize}
-# \textbf{Returns:} flat \texttt{list[int]} with values $0$ or $255$.
+# \paragraph{Returns:} \mintinline{python}|list[int]| --- flat binary
+# mask with values $0$ or $255$.
 #[/doc]
 def threshold(
     pixels: list[int], w: int, h: int, level: float,
@@ -433,13 +472,17 @@ def threshold(
 # out-of-bounds positions as black), so no explicit image expansion
 # is needed.
 #
-# \textbf{Args:}
+# \paragraph{Arguments:}
 # \begin{itemize}
-#   \item[\texttt{pixels}] --- flat binary mask ($0$ or $255$), length $w \times h$
-#   \item[\texttt{w}, \texttt{h}] --- image dimensions
-#   \item[\texttt{padding}] --- dilation radius $N$ in pixels
+#   \item \mintinline{python}|pixels: list[int]| --- flat binary mask
+#         ($0$ or $255$), length $w \times h$;
+#   \item \mintinline{python}|w: int|, \mintinline{python}|h: int| ---
+#         image dimensions;
+#   \item \mintinline{python}|padding: int| --- dilation radius $N$
+#         in pixels;
 # \end{itemize}
-# \textbf{Returns:} flat \texttt{list[int]} with values $0$ or $255$.
+# \paragraph{Returns:} \mintinline{python}|list[int]| --- flat binary
+# mask with values $0$ or $255$.
 #[/doc]
 def dilate_fast(pixels: list[int], w: int, h: int, padding: int) -> list[int]:
     if padding <= 0:
@@ -490,14 +533,19 @@ def dilate_fast(pixels: list[int], w: int, h: int, padding: int) -> list[int]:
 # The resulting contour is optionally simplified with the
 # Ramer--Douglas--Peucker algorithm.
 #
-# \textbf{Args:}
+# \paragraph{Arguments:}
 # \begin{itemize}
-#   \item[\texttt{pixels}] --- flat binary mask ($0$ or $255$), length $w \times h$
-#   \item[\texttt{w}, \texttt{h}] --- image dimensions
-#   \item[\texttt{simplify}] --- whether to apply RDP simplification
-#   \item[\texttt{epsilon}] --- RDP tolerance in pixels (default $1.0$)
+#   \item \mintinline{python}|pixels: list[int]| --- flat binary mask
+#         ($0$ or $255$), length $w \times h$;
+#   \item \mintinline{python}|w: int|, \mintinline{python}|h: int| ---
+#         image dimensions;
+#   \item \mintinline{python}|simplify: bool| --- whether to apply RDP
+#         simplification (default \texttt{True});
+#   \item \mintinline{python}|epsilon: float| --- RDP tolerance in
+#         pixels (default $1.0$);
 # \end{itemize}
-# \textbf{Returns:} list of \texttt{(x, y)} contour points.
+# \paragraph{Returns:} \mintinline{python}|list[Point]| --- list of
+# $(x, y)$ contour points.
 #[/doc]
 def trace_contour(
     pixels: list[int],
@@ -558,14 +606,16 @@ def trace_contour(
 # Scans the binary image row-by-row and returns the coordinates of the
 # first white (opaque) pixel.
 #
-# \textbf{Args:}
+# \paragraph{Arguments:}
 # \begin{itemize}
-#   \item[\texttt{pixels}] --- flat binary mask, length $w \times h$
-#   \item[\texttt{w}, \texttt{h}] --- image dimensions
+#   \item \mintinline{python}|pixels: list[int]| --- flat binary mask,
+#         length $w \times h$;
+#   \item \mintinline{python}|w: int|, \mintinline{python}|h: int| ---
+#         image dimensions;
 # \end{itemize}
-# \textbf{Returns:}
-# \texttt{(x, y)} of the first opaque pixel, or \texttt{None} for
-# an empty mask.
+# \paragraph{Returns:}
+# \mintinline{python}|tuple[int, int] | None| --- $(x, y)$ of the first
+# opaque pixel, or \texttt{None} for an empty mask.
 #[/doc]
 def _find_start(pixels: list[int], w: int, h: int) -> tuple[int, int] | None:
     for y in range(h):
@@ -592,12 +642,15 @@ def _find_start(pixels: list[int], w: int, h: int) -> tuple[int, int] | None:
 # The Gaussian kernel is $G(i) = e^{-(i - r)^2 / (2\sigma^2)}$,
 # normalised so $\sum G(i) = 1$.
 #
-# \textbf{Args:}
+# \paragraph{Arguments:}
 # \begin{itemize}
-#   \item[\texttt{points}] --- list of $(x, y)$ contour points
-#   \item[\texttt{sigma}] --- Gaussian $\sigma$ in pixels; $\sigma \le 0$ disables smoothing
+#   \item \mintinline{python}|points: list[Point]| --- list of
+#         $(x, y)$ contour points;
+#   \item \mintinline{python}|sigma: float| --- Gaussian $\sigma$ in
+#         pixels; $\sigma \le 0$ disables smoothing;
 # \end{itemize}
-# \textbf{Returns:} smoothed contour point list.
+# \paragraph{Returns:} \mintinline{python}|list[Point]| --- smoothed
+# contour point list.
 #[/doc]
 def smooth_contour(points: list[Point], sigma: float) -> list[Point]:
     if sigma <= 0 or len(points) < 3:
@@ -637,12 +690,15 @@ def smooth_contour(points: list[Point], sigma: float) -> list[Point]:
 # The recursion splits the contour at the furthest point, so sharp
 # corners are retained and straight sections are simplified.
 #
-# \textbf{Args:}
+# \paragraph{Arguments:}
 # \begin{itemize}
-#   \item[\texttt{points}] --- list of $(x, y)$ contour points
-#   \item[\texttt{epsilon}] --- distance threshold $\varepsilon$ (default $1.0$)
+#   \item \mintinline{python}|points: list[Point]| --- list of
+#         $(x, y)$ contour points;
+#   \item \mintinline{python}|epsilon: float| --- distance threshold
+#         $\varepsilon$ (default $1.0$);
 # \end{itemize}
-# \textbf{Returns:} simplified contour point list.
+# \paragraph{Returns:} \mintinline{python}|list[Point]| --- simplified
+# contour point list.
 #[/doc]
 def _simplify(points: list[Point], epsilon: float = 1.0) -> list[Point]:
     if len(points) <= 3:
@@ -691,17 +747,23 @@ def _simplify(points: list[Point], epsilon: float = 1.0) -> list[Point]:
 #         used by Lua to detect cache hits.
 # \end{itemize}
 #
-# \textbf{Args:}
+# \paragraph{Arguments:}
 # \begin{itemize}
-#   \item[\texttt{points}] --- list of $(x, y)$ contour points
-#   \item[\texttt{path}] --- output SVG file path
-#   \item[\texttt{img\_path}] --- original image path (for \texttt{<image href="...">})
-#   \item[\texttt{img\_width}, \texttt{img\_height}] --- image dimensions
-#   \item[\texttt{dpi}] --- image DPI
-#   \item[\texttt{threshold}, \texttt{padding}, \texttt{smooth}, \texttt{invert}] ---
-#         parameters stored as SVG attributes
+#   \item \mintinline{python}|points: list[Point]| --- list of
+#         $(x, y)$ contour points;
+#   \item \mintinline{python}|path: str| --- output SVG file path;
+#   \item \mintinline{python}|img_path: str| --- original image path
+#         (for \texttt{<image href="...">});
+#   \item \mintinline{python}|img_width: int|,
+#         \mintinline{python}|img_height: int| --- image dimensions;
+#   \item \mintinline{python}|dpi: float| --- image DPI;
+#   \item \mintinline{python}|threshold: float|,
+#         \mintinline{python}|padding: int|,
+#         \mintinline{python}|smooth: float|,
+#         \mintinline{python}|invert: bool| --- parameters stored as SVG
+#         attributes;
 # \end{itemize}
-# \textbf{Returns:} \texttt{None}.
+# \paragraph{Returns:} \mintinline{python}|None|.
 #[/doc]
 def write_svg(
     points: list[Point],
@@ -752,12 +814,14 @@ def write_svg(
 #
 # Defines the CLI interface using \texttt{argparse}.
 #
-# \textbf{Args:}
-# \texttt{argv} --- argument list (defaults to \texttt{sys.argv[1:]}).
-#
-# \textbf{Returns:}
-# \texttt{argparse.Namespace} with fields: \texttt{input}, \texttt{output},
-# \texttt{threshold}, \texttt{padding}, \texttt{smooth}, \texttt{simplify},
+# \paragraph{Arguments:}
+# \begin{itemize}
+#   \item \mintinline{python}|argv: list[str] | None| --- argument list
+#         (defaults to \texttt{sys.argv[1:]});
+# \end{itemize}
+# \paragraph{Returns:} \mintinline{python}|argparse.Namespace| ---
+# with fields \texttt{input}, \texttt{output}, \texttt{threshold},
+# \texttt{padding}, \texttt{smooth}, \texttt{simplify},
 # \texttt{epsilon}, \texttt{invert}, \texttt{verbose}.
 #[/doc]
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -805,11 +869,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 # \texttt{wrapgraphics.main(["--input", ...])} and handle the integer
 # return code (0 = success, 1 = error).
 #
-# \textbf{Args:}
-# \texttt{argv} --- argument list (passed to \texttt{parse\_args}).
-#
-# \textbf{Returns:}
-# \texttt{int} --- 0 on success, 1 on error.
+# \paragraph{Arguments:}
+# \begin{itemize}
+#   \item \mintinline{python}|argv: list[str] | None| --- argument list
+#         (passed to \texttt{parse\_args});
+# \end{itemize}
+# \paragraph{Returns:} \mintinline{python}|int| --- 0 on success, 1 on
+# error.
 #[/doc]
 def main(argv: list[str] | None = None) -> int:
     try:
