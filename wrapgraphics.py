@@ -90,8 +90,8 @@ def _read_png_chunks(path: str) -> list[tuple[bytes, bytes]]:
 #   \item \mintinline{python}|chunk_type: bytes| --- 4-byte type to
 #         find (e.g. \texttt{b'IHDR'});
 # \end{itemize}
-# \paragraph{Returns:} \mintinline{python}|bytes | None| --- chunk data,
-# or \texttt{None} if not found.
+# \paragraph{Returns:} \mintinline{python}|bytes| --- chunk data, or
+# \texttt{None} if no chunk with that type exists.
 #[/doc]
 def _find_chunk(
     chunks: list[tuple[bytes, bytes]], chunk_type: bytes,
@@ -614,7 +614,7 @@ def trace_contour(
 #         image dimensions;
 # \end{itemize}
 # \paragraph{Returns:}
-# \mintinline{python}|tuple[int, int] | None| --- $(x, y)$ of the first
+# \mintinline{python}|tuple[int, int]| --- $(x, y)$ of the first
 # opaque pixel, or \texttt{None} for an empty mask.
 #[/doc]
 def _find_start(pixels: list[int], w: int, h: int) -> tuple[int, int] | None:
@@ -816,7 +816,7 @@ def write_svg(
 #
 # \paragraph{Arguments:}
 # \begin{itemize}
-#   \item \mintinline{python}|argv: list[str] | None| --- argument list
+#   \item \mintinline{python}|argv: list[str]| --- argument list
 #         (defaults to \texttt{sys.argv[1:]});
 # \end{itemize}
 # \paragraph{Returns:} \mintinline{python}|argparse.Namespace| ---
@@ -871,7 +871,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 #
 # \paragraph{Arguments:}
 # \begin{itemize}
-#   \item \mintinline{python}|argv: list[str] | None| --- argument list
+#   \item \mintinline{python}|argv: list[str]| --- argument list
 #         (passed to \texttt{parse\_args});
 # \end{itemize}
 # \paragraph{Returns:} \mintinline{python}|int| --- 0 on success, 1 on
