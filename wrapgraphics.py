@@ -5,15 +5,16 @@ outer contour with Moore-Neighbor boundary following, simplifies (RDP),
 smooths, offsets outward by N pixels (padding), rasterises the offset
 contour as a filled polygon and re-traces the outer boundary (removes
 self-intersections / swirls), then writes an SVG file.
+
+Zero external dependencies — only Python stdlib (struct, zlib).
 """
 
 import argparse
 import math
 import os
+import struct
 import sys
-import traceback
-
-from PIL import Image, UnidentifiedImageError
+import zlib
 
 Point = tuple[float, float]
 
@@ -43,26 +44,210 @@ Point = tuple[float, float]
 #[/doc]
 
 
+PNG_SIG = b"\x89PNG\r\n\x1a\n"
+
+
+#[doc]
+# \subsubsection{PNG helper: \texttt{\_read\_png\_rgba}}
+#
+# Parses a PNG file using only \texttt{struct} and \texttt{zlib} from
+# the standard library.  Returns \texttt{(width, height, flat\_rgba)}
+# where \texttt{flat\_rgba} is a \texttt{bytearray} of RGBA pixel
+# data in row-major order (4 bytes per pixel).
+#
+# Handles colour types 0 (Grayscale), 2 (RGB), 4 (Grayscale+Alpha),
+# 6 (RGBA) with bit depth 8.  For types without alpha, fully opaque
+# (255) is used.  Indexed colour (type 3) raises an error asking the
+# user to convert to RGBA PNG.
+#[/doc]
+def _read_png_rgba(path: str) -> tuple[int, int, bytearray]:
+    with open(path, "rb") as f:
+        sig = f.read(8)
+        if sig != PNG_SIG:
+            raise ValueError(f"Not a valid PNG file: {path}")
+
+        chunks: list[tuple[bytes, bytes]] = []
+        while True:
+            raw = f.read(4)
+            if len(raw) < 4:
+                break
+            length = struct.unpack(">I", raw)[0]
+            chunk_type = f.read(4)
+            data = f.read(length) if length > 0 else b""
+            crc = f.read(4)
+            chunks.append((chunk_type, data))
+            if chunk_type == b"IEND":
+                break
+
+    ihdr_data = None
+    idat_data = b""
+    for chunk_type, data in chunks:
+        if chunk_type == b"IHDR":
+            ihdr_data = data
+        elif chunk_type == b"IDAT":
+            idat_data += data
+
+    if ihdr_data is None:
+        raise ValueError(f"No IHDR chunk in PNG: {path}")
+
+    w, h, bit_depth, color_type = struct.unpack(">IIBB", ihdr_data[:10])
+    comp_method, filter_method, interlace = struct.unpack(">BBB", ihdr_data[10:13])
+
+    if comp_method != 0:
+        raise ValueError(f"Unsupported PNG compression method: {comp_method}")
+    if filter_method != 0:
+        raise ValueError(f"Unsupported PNG filter method: {filter_method}")
+    if interlace != 0:
+        raise ValueError("Interlaced PNG not supported")
+    if bit_depth != 8:
+        raise ValueError(f"Only 8-bit PNG supported, got bit_depth={bit_depth}")
+
+    if color_type == 3:
+        raise ValueError(
+            "Indexed-colour PNG not supported. "
+            "Please convert to RGBA PNG first (e.g. with ImageMagick: "
+            f"convert {os.path.basename(path)} -alpha on PNG32:{os.path.basename(path)}"
+        )
+
+    raw = zlib.decompress(idat_data)
+
+    bpp = 1
+    if color_type == 0:
+        bpp = 1
+    elif color_type == 2:
+        bpp = 3
+    elif color_type == 4:
+        bpp = 2
+    elif color_type == 6:
+        bpp = 4
+
+    stride = 1 + w * bpp
+    rows = []
+    for y in range(h):
+        row_start = y * stride
+        filt = raw[row_start]
+        row_data = bytearray(raw[row_start + 1 : row_start + stride])
+        prev_row = rows[-1] if rows else bytearray(w * bpp)
+
+        if filt == 0:
+            pass
+        elif filt == 1:
+            for i in range(bpp, len(row_data)):
+                row_data[i] = (row_data[i] + row_data[i - bpp]) & 0xFF
+        elif filt == 2:
+            for i in range(len(row_data)):
+                row_data[i] = (row_data[i] + prev_row[i]) & 0xFF
+        elif filt == 3:
+            for i in range(len(row_data)):
+                left = row_data[i - bpp] if i >= bpp else 0
+                up = prev_row[i]
+                row_data[i] = (row_data[i] + (left + up) // 2) & 0xFF
+        elif filt == 4:
+            for i in range(len(row_data)):
+                left = row_data[i - bpp] if i >= bpp else 0
+                up = prev_row[i]
+                up_left = prev_row[i - bpp] if i >= bpp else 0
+                p = left + up - up_left
+                pa = abs(p - left)
+                pb = abs(p - up)
+                pc = abs(p - up_left)
+                if pa <= pb and pa <= pc:
+                    pred = left
+                elif pb <= pc:
+                    pred = up
+                else:
+                    pred = up_left
+                row_data[i] = (row_data[i] + pred) & 0xFF
+        else:
+            raise ValueError(f"Unknown PNG filter type: {filt}")
+
+        rows.append(row_data)
+
+    rgba = bytearray(w * h * 4)
+    for y in range(h):
+        row = rows[y]
+        for x in range(w):
+            off = x * bpp
+            dst = (y * w + x) * 4
+            if color_type == 0:
+                g = row[off]
+                rgba[dst:dst + 4] = bytes([g, g, g, 255])
+            elif color_type == 2:
+                rgba[dst:dst + 3] = row[off:off + 3]
+                rgba[dst + 3] = 255
+            elif color_type == 4:
+                g = row[off]
+                a = row[off + 1]
+                rgba[dst:dst + 4] = bytes([g, g, g, a])
+            elif color_type == 6:
+                rgba[dst:dst + 4] = row[off:off + 4]
+    return w, h, rgba
+
+
+#[doc]
+# \subsubsection{PNG helper: \texttt{\_read\_png\_meta}}
+#
+# Reads only the header of a PNG file to extract width, height, and
+# DPI (from the \texttt{pHYs} chunk, if present).  Returns
+# \texttt{(width, height, dpi)}.
+#[/doc]
+def _read_png_meta(path: str) -> tuple[int, int, float]:
+    w, h = 0, 0
+    dpi = 72.0
+    with open(path, "rb") as f:
+        sig = f.read(8)
+        if sig != PNG_SIG:
+            raise ValueError(f"Not a valid PNG file: {path}")
+        while True:
+            raw = f.read(4)
+            if len(raw) < 4:
+                break
+            length = struct.unpack(">I", raw)[0]
+            chunk_type = f.read(4)
+            data = f.read(length) if length > 0 else b""
+            crc = f.read(4)
+
+            if chunk_type == b"IHDR":
+                w, h = struct.unpack(">II", data[:8])
+            elif chunk_type == b"pHYs":
+                ppu_x, ppu_y, unit = struct.unpack(">IIB", data)
+                if unit == 1 and ppu_x == ppu_y:
+                    dpi = ppu_x * 0.0254
+            elif chunk_type == b"IEND":
+                break
+    if w == 0 or h == 0:
+        raise ValueError(f"No IHDR chunk found in PNG: {path}")
+    return w, h, dpi
+
 
 #[doc]
 # \subsubsection{\texttt{load\_alpha}}
-# Opens the image and returns the alpha channel as a grayscale
-# \texttt{PIL.Image}.  The image is converted to RGBA first so the
-# alpha channel is guaranteed to exist.
+# Opens the image and returns the alpha channel as a flat list of
+# pixel values (0--255).  Images without an alpha channel get a
+# fully opaque (255) alpha mask.
+#
+# Returns \texttt{(width, height, flat\_alpha)} where
+# \texttt{flat\_alpha} is a \texttt{list[int]} of length w*h.
 #[/doc]
-def load_alpha(image_path: str) -> Image.Image:
-    img = Image.open(image_path).convert("RGBA")
-    return img.split()[-1]
+def load_alpha(image_path: str) -> tuple[int, int, list[int]]:
+    w, h, rgba = _read_png_rgba(image_path)
+    alpha = [rgba[(y * w + x) * 4 + 3] for y in range(h) for x in range(w)]
+    return w, h, alpha
 
 
 #[doc]
 # \subsubsection{\texttt{threshold}}
 # Converts the alpha channel to a binary mask.  Pixels with an alpha
-# value greater or equal to \texttt{level * 255} are considered opaque.
+# value greater or equal to \texttt{level * 255} are set to 255
+# (opaque); all others are set to 0.
+#
+# Input and output are flat \texttt{list[int]} of length w*h.
 #[/doc]
-def threshold(alpha: Image.Image, level: float) -> Image.Image:
-    threshold_val = int(level * 255)
-    return alpha.point(lambda p: 255 if p >= threshold_val else 0)  # type: ignore[return-value]
+def threshold(
+    pixels: list[int], w: int, h: int, level: float,
+) -> list[int]:
+    thresh = int(level * 255)
+    return [255 if p >= thresh else 0 for p in pixels]
 
 
 #[doc]
@@ -77,25 +262,37 @@ def threshold(alpha: Image.Image, level: float) -> Image.Image:
 # integral image gives \texttt{O(n)} performance regardless of the
 # padding size.
 #
-# Requires NumPy for the integral-image computation.
+# Input and output are flat \texttt{list[int]} of length w*h, values
+# 0 or 255.  Boundary pixels use a clipped window (implicitly
+# treating out-of-bounds positions as black), so no explicit image
+# expansion is needed.
 #[/doc]
-def dilate_fast(mask: Image.Image, padding: int) -> Image.Image:
-    """Binary dilation via integral image (O(n), fast even for large padding)."""
+def dilate_fast(pixels: list[int], w: int, h: int, padding: int) -> list[int]:
     if padding <= 0:
-        return mask
-    import numpy as np
-    arr = np.array(mask, dtype=np.uint8)
-    bins = (arr > 127).astype(np.int64)
-    h_img, w_img = bins.shape
-    integral = np.pad(bins.cumsum(axis=0).cumsum(axis=1), (1, 0), mode="constant")[:, :]
-    y_idx = np.arange(h_img)[:, None]
-    x_idx = np.arange(w_img)[None, :]
-    y1 = np.maximum(0, y_idx - padding)
-    y2 = np.minimum(h_img, y_idx + padding + 1)
-    x1 = np.maximum(0, x_idx - padding)
-    x2 = np.minimum(w_img, x_idx + padding + 1)
-    s = integral[y2, x2] - integral[y1, x2] - integral[y2, x1] + integral[y1, x1]
-    return Image.fromarray((s > 0).astype(np.uint8) * 255, mode="L")
+        return pixels
+
+    bins = [1 if p > 127 else 0 for p in pixels]
+    integral = [0] * ((w + 1) * (h + 1))
+    for y in range(h):
+        row_sum = 0
+        for x in range(w):
+            row_sum += bins[y * w + x]
+            integral[(y + 1) * (w + 1) + (x + 1)] = integral[y * (w + 1) + (x + 1)] + row_sum
+
+    result = [0] * (w * h)
+    for y in range(h):
+        y1 = max(0, y - padding)
+        y2 = min(h, y + padding + 1)
+        for x in range(w):
+            x1 = max(0, x - padding)
+            x2 = min(w, x + padding + 1)
+            s = (integral[y2 * (w + 1) + x2]
+                 - integral[y1 * (w + 1) + x2]
+                 - integral[y2 * (w + 1) + x1]
+                 + integral[y1 * (w + 1) + x1])
+            if s > 0:
+                result[y * w + x] = 255
+    return result
 
 
 #[doc]
@@ -141,13 +338,12 @@ def smooth_contour(points: list[Point], sigma: float) -> list[Point]:
 # Ramer--Douglas--Peucker algorithm.
 #[/doc]
 def trace_contour(
-    binary: Image.Image,
+    pixels: list[int],
+    w: int,
+    h: int,
     simplify: bool = True,
     epsilon: float = 1.0,
 ) -> list[Point]:
-    pixels = binary.load()
-    w, h = binary.size
-
     start = _find_start(pixels, w, h)
     if start is None:
         return []
@@ -177,7 +373,7 @@ def trace_contour(
             idx = (start_idx + 1 + i) % 8
             nx = current[0] + moore[idx][0]
             ny = current[1] + moore[idx][1]
-            if 0 <= nx < w and 0 <= ny < h and pixels[nx, ny] > 127:  # type: ignore[index,operator]
+            if 0 <= nx < w and 0 <= ny < h and pixels[ny * w + nx] > 127:
                 prev = current
                 current = (nx, ny)
                 found = True
@@ -199,10 +395,10 @@ def trace_contour(
 # Scans the binary image row-by-row and returns the coordinates of the
 # first white (opaque) pixel.  Returns \texttt{None} for an empty mask.
 #[/doc]
-def _find_start(pixels, w, h) -> tuple[int, int] | None:
+def _find_start(pixels: list[int], w: int, h: int) -> tuple[int, int] | None:
     for y in range(h):
         for x in range(w):
-            if pixels[x, y] > 127:
+            if pixels[y * w + x] > 127:
                 return (x, y)
     return None
 
@@ -359,37 +555,27 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
-        img = Image.open(args.input)
-    except (FileNotFoundError, UnidentifiedImageError, PermissionError) as e:
+        w, h, dpi = _read_png_meta(args.input)
+    except (FileNotFoundError, ValueError, PermissionError) as e:
         print(f"Error: cannot open image '{args.input}': {e}", file=sys.stderr)
         return 1
-
-    dpi = 72.0
-    if "dpi" in img.info and img.info["dpi"] is not None:
-        dpi = float(img.info["dpi"][0])
-    w, h = img.size
     vprint(f"image: {w}x{h}, dpi={dpi:.1f}")
 
-    alpha = load_alpha(args.input)
-    vprint(f"alpha channel loaded, mode={alpha.mode}")
+    try:
+        _, _, alpha = load_alpha(args.input)
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+    vprint(f"alpha channel loaded ({len(alpha)} px)")
 
-    mask = threshold(alpha, args.threshold)
+    mask = threshold(alpha, w, h, args.threshold)
     vprint(f"threshold={args.threshold} applied")
 
-    if args.padding > 0:
-        from PIL import ImageOps
-        mask = ImageOps.expand(mask, border=args.padding, fill=0)
-        vprint(f"padded by {args.padding} px (border)")
-
-    mask = dilate_fast(mask, args.padding)
+    mask = dilate_fast(mask, w, h, args.padding)
     vprint(f"dilated by {args.padding} px (integral-image)")
 
-    contour = trace_contour(mask, simplify=args.simplify, epsilon=args.epsilon)
+    contour = trace_contour(mask, w, h, simplify=args.simplify, epsilon=args.epsilon)
     vprint(f"contour traced: {len(contour)} points (simplify={args.simplify}, epsilon={args.epsilon})")
-
-    if args.padding > 0:
-        contour = [(x - args.padding, y - args.padding) for x, y in contour]
-        vprint(f"contour translated back by -{args.padding} px")
 
     if args.smooth > 0:
         contour = smooth_contour(contour, args.smooth)
