@@ -1,24 +1,3 @@
-"""wrapgraphics.py — CLI entry point for contour tracing.
-
-Reads an image, extracts the alpha channel, thresholds it, traces the
-outer contour with Moore-Neighbor boundary following, simplifies (RDP),
-smooths, offsets outward by N pixels (padding), rasterises the offset
-contour as a filled polygon and re-traces the outer boundary (removes
-self-intersections / swirls), then writes an SVG file.
-
-Zero external dependencies — only Python stdlib (struct, zlib).
-"""
-
-import argparse
-import math
-import os
-import struct
-import sys
-import zlib
-
-Point = tuple[float, float]
-
-
 #[doc]
 # \texttt{wrapgraphics.py} --- Python CLI for contour tracing.
 #
@@ -31,68 +10,113 @@ Point = tuple[float, float]
 # \begin{enumerate}
 #   \item Load the image, extract the alpha channel.
 #   \item Threshold the alpha at a given level (0--1).
-#   \item Dilate the binary mask by \texttt{N} pixels (padding) using
-#         an integral-image method for \texttt{O(n)} performance.
+#   \item Dilate the binary mask by $N$ pixels (padding) using
+#         an integral-image method for $O(n)$ performance.
 #   \item Trace the outer contour with the Moore--Neighbor boundary
 #         following algorithm.
-#   \item Simplify with Ramer--Douglas--Peucker (\texttt{epsilon}).
+#   \item Simplify with Ramer--Douglas--Peucker ($\varepsilon$).
 #   \item Optionally smooth with a Gaussian kernel.
 #   \item Write the result as an SVG with embedded image and contour
 #         path, plus metadata attributes (DPI, threshold, padding,
 #         smooth, invert).
 # \end{enumerate}
+# 
+# Zero external dependencies --- only Python stdlib (struct, zlib).
 #[/doc]
 
+import argparse
+import math
+import os
+import struct
+import sys
+import zlib
+
+Point = tuple[float, float]
 
 PNG_SIG = b"\x89PNG\r\n\x1a\n"
 
+# ---------------------------------------------------------------------------
+# PNG helpers
+# ---------------------------------------------------------------------------
+
 
 #[doc]
-# \subsubsection{PNG helper: \texttt{\_read\_png\_rgba}}
+# \subsubsection{PNG helper: \texttt{\_read\_png\_chunks}}
 #
-# Parses a PNG file using only \texttt{struct} and \texttt{zlib} from
-# the standard library.  Returns \texttt{(width, height, flat\_rgba)}
-# where \texttt{flat\_rgba} is a \texttt{bytearray} of RGBA pixel
-# data in row-major order (4 bytes per pixel).
+# Reads all chunks from a PNG file.  Each chunk is returned as
+# \texttt{(type, data)} where \texttt{type} is the 4-byte type code
+# (e.g.\ \texttt{b'IHDR'}) and \texttt{data} is the chunk payload.
 #
-# Handles colour types 0 (Grayscale), 2 (RGB), 4 (Grayscale+Alpha),
-# 6 (RGBA) with bit depth 8.  For types without alpha, fully opaque
-# (255) is used.  Indexed colour (type 3) raises an error asking the
-# user to convert to RGBA PNG.
+# \textbf{Args:}
+# \begin{itemize}
+#   \item[\texttt{path}] --- path to the PNG file
+# \end{itemize}
+# \textbf{Returns:} list of \texttt{(type, data)} pairs.
+#
+# \textbf{Raises:}
+# \texttt{ValueError} if the file does not start with a valid PNG
+# signature.
 #[/doc]
-def _read_png_rgba(path: str) -> tuple[int, int, bytearray]:
+def _read_png_chunks(path: str) -> list[tuple[bytes, bytes]]:
     with open(path, "rb") as f:
         sig = f.read(8)
         if sig != PNG_SIG:
             raise ValueError(f"Not a valid PNG file: {path}")
-
         chunks: list[tuple[bytes, bytes]] = []
         while True:
-            raw = f.read(4)
-            if len(raw) < 4:
+            raw_len = f.read(4)
+            if len(raw_len) < 4:
                 break
-            length = struct.unpack(">I", raw)[0]
+            length = struct.unpack(">I", raw_len)[0]
             chunk_type = f.read(4)
             data = f.read(length) if length > 0 else b""
             crc = f.read(4)
             chunks.append((chunk_type, data))
             if chunk_type == b"IEND":
                 break
+    return chunks
 
-    ihdr_data = None
-    idat_data = b""
-    for chunk_type, data in chunks:
-        if chunk_type == b"IHDR":
-            ihdr_data = data
-        elif chunk_type == b"IDAT":
-            idat_data += data
 
-    if ihdr_data is None:
-        raise ValueError(f"No IHDR chunk in PNG: {path}")
+#[doc]
+# \subsubsection{PNG helper: \texttt{\_find\_chunk}}
+#
+# Finds a chunk by type in a list of PNG chunks.
+#
+# \textbf{Args:}
+# \begin{itemize}
+#   \item[\texttt{chunks}] --- list of \texttt{(type, data)} pairs
+#   \item[\texttt{chunk\_type}] --- 4-byte type to find (e.g.\ \texttt{b'IHDR'})
+# \end{itemize}
+# \textbf{Returns:} chunk data, or \texttt{None} if not found.
+#[/doc]
+def _find_chunk(
+    chunks: list[tuple[bytes, bytes]], chunk_type: bytes,
+) -> bytes | None:
+    for ct, data in chunks:
+        if ct == chunk_type:
+            return data
+    return None
 
+
+#[doc]
+# \subsubsection{PNG helper: \texttt{\_validate\_ihdr}}
+#
+# Parses and validates the IHDR chunk.  Checks compression method,
+# filter method, interlace flag, and bit depth.
+#
+# \textbf{Args:}
+# \begin{itemize}
+#   \item[\texttt{ihdr\_data}] --- raw IHDR chunk payload (13 bytes)
+#   \item[\texttt{path}] --- original file path (for error messages)
+# \end{itemize}
+# \textbf{Returns:} tuple \texttt{(width, height, bit\_depth, color\_type)}.
+#
+# \textbf{Raises:}
+# \texttt{ValueError} if any IHDR field is unsupported or invalid.
+#[/doc]
+def _validate_ihdr(ihdr_data: bytes, path: str) -> tuple[int, int, int, int]:
     w, h, bit_depth, color_type = struct.unpack(">IIBB", ihdr_data[:10])
     comp_method, filter_method, interlace = struct.unpack(">BBB", ihdr_data[10:13])
-
     if comp_method != 0:
         raise ValueError(f"Unsupported PNG compression method: {comp_method}")
     if filter_method != 0:
@@ -101,68 +125,159 @@ def _read_png_rgba(path: str) -> tuple[int, int, bytearray]:
         raise ValueError("Interlaced PNG not supported")
     if bit_depth != 8:
         raise ValueError(f"Only 8-bit PNG supported, got bit_depth={bit_depth}")
-
     if color_type == 3:
         raise ValueError(
-            "Indexed-colour PNG not supported. "
+            "Indexed-colour PNG not supported.  "
             "Please convert to RGBA PNG first (e.g. with ImageMagick: "
             f"convert {os.path.basename(path)} -alpha on PNG32:{os.path.basename(path)}"
         )
+    return w, h, bit_depth, color_type
 
-    raw = zlib.decompress(idat_data)
 
-    bpp = 1
-    if color_type == 0:
-        bpp = 1
-    elif color_type == 2:
-        bpp = 3
-    elif color_type == 4:
-        bpp = 2
-    elif color_type == 6:
-        bpp = 4
+#[doc]
+# \subsubsection{PNG helper: \texttt{\_bpp\_for\_color\_type}}
+#
+# Returns the number of bytes per pixel for a given PNG colour type.
+#
+# \textbf{Args:}
+# \texttt{color\_type} --- PNG colour type (0, 2, 4, or 6).
+#
+# \textbf{Returns:} bytes per pixel (1 for Grayscale, 3 for RGB,
+# 2 for Grayscale+Alpha, 4 for RGBA).
+#[/doc]
+def _bpp_for_color_type(color_type: int) -> int:
+    return {0: 1, 2: 3, 4: 2, 6: 4}.get(color_type, 1)
 
+
+#[doc]
+# \subsubsection{PNG helper: \texttt{\_decompress\_idat}}
+#
+# Concatenates all IDAT chunks and decompresses them with
+# \texttt{zlib}.
+#
+# \textbf{Args:}
+# \texttt{chunks} --- list of \texttt{(type, data)} pairs.
+#
+# \textbf{Returns:} decompressed raw pixel data.
+#[/doc]
+def _decompress_idat(chunks: list[tuple[bytes, bytes]]) -> bytes:
+    idat_data = b""
+    for ct, data in chunks:
+        if ct == b"IDAT":
+            idat_data += data
+    return zlib.decompress(idat_data)
+
+
+#[doc]
+# \subsubsection{PNG helper: \texttt{\_apply\_png\_filter\_row}}
+#
+# Reverses the PNG filter on a single row of pixel data.
+#
+# PNG filter types:
+# \begin{enumerate}
+#   \item Sub: $Filt(x) = Raw(x) - Raw(x - bpp)$
+#   \item Up: $Filt(x) = Raw(x) - Prior(x)$
+#   \item Average: $Filt(x) = Raw(x) - \lfloor(Raw(x - bpp) + Prior(x)) / 2\rfloor$
+#   \item Paeth: $Filt(x) = Raw(x) - \text{Paeth}(Raw(x - bpp), Prior(x), Prior(x - bpp))$
+# \end{enumerate}
+#
+# \textbf{Args:}
+# \begin{itemize}
+#   \item[\texttt{row\_data}] --- raw filtered row (without filter byte)
+#   \item[\texttt{prev\_row}] --- previous row (decompressed)
+#   \item[\texttt{bpp}] --- bytes per pixel
+#   \item[\texttt{filter\_type}] --- PNG filter type (0--4)
+# \end{itemize}
+# \textbf{Returns:} decompressed row data.
+#[/doc]
+def _apply_png_filter_row(
+    row_data: bytearray, prev_row: bytearray, bpp: int, filter_type: int,
+) -> bytearray:
+    row = bytearray(row_data)
+    n = len(row)
+    if filter_type == 0:
+        return row
+    if filter_type == 1:
+        for i in range(bpp, n):
+            row[i] = (row[i] + row[i - bpp]) & 0xFF
+        return row
+    if filter_type == 2:
+        for i in range(n):
+            row[i] = (row[i] + prev_row[i]) & 0xFF
+        return row
+    if filter_type == 3:
+        for i in range(n):
+            left = row[i - bpp] if i >= bpp else 0
+            up = prev_row[i]
+            row[i] = (row[i] + (left + up) // 2) & 0xFF
+        return row
+    if filter_type == 4:
+        for i in range(n):
+            left = row[i - bpp] if i >= bpp else 0
+            up = prev_row[i]
+            up_left = prev_row[i - bpp] if i >= bpp else 0
+            p = left + up - up_left
+            pa = abs(p - left)
+            pb = abs(p - up)
+            pc = abs(p - up_left)
+            if pa <= pb and pa <= pc:
+                pred = left
+            elif pb <= pc:
+                pred = up
+            else:
+                pred = up_left
+            row[i] = (row[i] + pred) & 0xFF
+        return row
+    raise ValueError(f"Unknown PNG filter type: {filter_type}")
+
+
+#[doc]
+# \subsubsection{PNG helper: \texttt{\_apply\_png\_filters}}
+#
+# Applies PNG filters to all rows of the decompressed image data.
+#
+# \textbf{Args:}
+# \begin{itemize}
+#   \item[\texttt{raw}] --- decompressed image data (filter byte + pixels per row)
+#   \item[\texttt{w}] --- image width in pixels
+#   \item[\texttt{h}] --- image height in pixels
+#   \item[\texttt{bpp}] --- bytes per pixel
+# \end{itemize}
+# \textbf{Returns:} list of decompressed rows, each as \texttt{bytearray}.
+#[/doc]
+def _apply_png_filters(
+    raw: bytes, w: int, h: int, bpp: int,
+) -> list[bytearray]:
     stride = 1 + w * bpp
-    rows = []
+    rows: list[bytearray] = []
     for y in range(h):
         row_start = y * stride
         filt = raw[row_start]
         row_data = bytearray(raw[row_start + 1 : row_start + stride])
-        prev_row = rows[-1] if rows else bytearray(w * bpp)
+        prev = rows[-1] if rows else bytearray(w * bpp)
+        rows.append(_apply_png_filter_row(row_data, prev, bpp, filt))
+    return rows
 
-        if filt == 0:
-            pass
-        elif filt == 1:
-            for i in range(bpp, len(row_data)):
-                row_data[i] = (row_data[i] + row_data[i - bpp]) & 0xFF
-        elif filt == 2:
-            for i in range(len(row_data)):
-                row_data[i] = (row_data[i] + prev_row[i]) & 0xFF
-        elif filt == 3:
-            for i in range(len(row_data)):
-                left = row_data[i - bpp] if i >= bpp else 0
-                up = prev_row[i]
-                row_data[i] = (row_data[i] + (left + up) // 2) & 0xFF
-        elif filt == 4:
-            for i in range(len(row_data)):
-                left = row_data[i - bpp] if i >= bpp else 0
-                up = prev_row[i]
-                up_left = prev_row[i - bpp] if i >= bpp else 0
-                p = left + up - up_left
-                pa = abs(p - left)
-                pb = abs(p - up)
-                pc = abs(p - up_left)
-                if pa <= pb and pa <= pc:
-                    pred = left
-                elif pb <= pc:
-                    pred = up
-                else:
-                    pred = up_left
-                row_data[i] = (row_data[i] + pred) & 0xFF
-        else:
-            raise ValueError(f"Unknown PNG filter type: {filt}")
 
-        rows.append(row_data)
-
+#[doc]
+# \subsubsection{PNG helper: \texttt{\_pack\_rgba}}
+#
+# Converts raw pixel rows to a flat RGBA byte array.  Colour types
+# without alpha (0, 2) get fully opaque alpha ($255$).
+#
+# \textbf{Args:}
+# \begin{itemize}
+#   \item[\texttt{rows}] --- list of decompressed row data
+#   \item[\texttt{w}] --- image width
+#   \item[\texttt{h}] --- image height
+#   \item[\texttt{color\_type}] --- PNG colour type
+#   \item[\texttt{bpp}] --- bytes per pixel
+# \end{itemize}
+# \textbf{Returns:} \texttt{bytearray} of RGBA pixel data, length $w \times h \times 4$.
+#[/doc]
+def _pack_rgba(
+    rows: list[bytearray], w: int, h: int, color_type: int, bpp: int,
+) -> bytearray:
     rgba = bytearray(w * h * 4)
     for y in range(h):
         row = rows[y]
@@ -181,28 +296,64 @@ def _read_png_rgba(path: str) -> tuple[int, int, bytearray]:
                 rgba[dst:dst + 4] = bytes([g, g, g, a])
             elif color_type == 6:
                 rgba[dst:dst + 4] = row[off:off + 4]
+    return rgba
+
+
+#[doc]
+# \subsubsection{PNG helper: \texttt{\_read\_png\_rgba}}
+#
+# Full PNG decoder.  Orchestrates chunk reading, IHDR validation,
+# IDAT decompression, filter reversal, and RGBA packing.
+#
+# Uses only \texttt{struct} and \texttt{zlib} from the standard library.
+#
+# \textbf{Args:}
+# \texttt{path} --- path to the PNG file.
+#
+# \textbf{Returns:}
+# \texttt{(width, height, flat\_rgba)} where \texttt{flat\_rgba}
+# is a \texttt{bytearray} in row-major order (4 bytes per pixel).
+#
+# \textbf{Supported:}
+# colour types 0 (Grayscale), 2 (RGB), 4 (Grayscale+Alpha),
+# 6 (RGBA) with bit depth~8.  Indexed colour (type~3) raises an error.
+#[/doc]
+def _read_png_rgba(path: str) -> tuple[int, int, bytearray]:
+    chunks = _read_png_chunks(path)
+    ihdr_data = _find_chunk(chunks, b"IHDR")
+    if ihdr_data is None:
+        raise ValueError(f"No IHDR chunk in PNG: {path}")
+    w, h, _bit_depth, color_type = _validate_ihdr(ihdr_data, path)
+    bpp = _bpp_for_color_type(color_type)
+    raw = _decompress_idat(chunks)
+    rows = _apply_png_filters(raw, w, h, bpp)
+    rgba = _pack_rgba(rows, w, h, color_type, bpp)
     return w, h, rgba
 
 
 #[doc]
 # \subsubsection{PNG helper: \texttt{\_read\_png\_meta}}
 #
-# Reads only the header of a PNG file to extract width, height, and
-# DPI (from the \texttt{pHYs} chunk, if present).  Returns
+# Reads metadata from a PNG header without full decompression.
+# Extracts width, height, and DPI (from the \texttt{pHYs} chunk).
+#
+# \textbf{Args:}
+# \texttt{path} --- path to the PNG file.
+#
+# \textbf{Returns:}
 # \texttt{(width, height, dpi)}.
 #[/doc]
 def _read_png_meta(path: str) -> tuple[int, int, float]:
-    w, h = 0, 0
-    dpi = 72.0
+    w, h, dpi = 0, 0, 72.0
     with open(path, "rb") as f:
         sig = f.read(8)
         if sig != PNG_SIG:
             raise ValueError(f"Not a valid PNG file: {path}")
         while True:
-            raw = f.read(4)
-            if len(raw) < 4:
+            raw_len = f.read(4)
+            if len(raw_len) < 4:
                 break
-            length = struct.unpack(">I", raw)[0]
+            length = struct.unpack(">I", raw_len)[0]
             chunk_type = f.read(4)
             data = f.read(length) if length > 0 else b""
             crc = f.read(4)
@@ -220,14 +371,24 @@ def _read_png_meta(path: str) -> tuple[int, int, float]:
     return w, h, dpi
 
 
+# ---------------------------------------------------------------------------
+# Alpha processing
+# ---------------------------------------------------------------------------
+
+
 #[doc]
 # \subsubsection{\texttt{load\_alpha}}
-# Opens the image and returns the alpha channel as a flat list of
-# pixel values (0--255).  Images without an alpha channel get a
-# fully opaque (255) alpha mask.
 #
-# Returns \texttt{(width, height, flat\_alpha)} where
-# \texttt{flat\_alpha} is a \texttt{list[int]} of length w*h.
+# Opens a PNG image and extracts the alpha channel as a flat list of
+# pixel values ($0$--$255$).  Images without an alpha channel get a
+# fully opaque ($255$) mask.
+#
+# \textbf{Args:}
+# \texttt{image\_path} --- path to the PNG file.
+#
+# \textbf{Returns:}
+# \texttt{(width, height, flat\_alpha)} where \texttt{flat\_alpha}
+# is a \texttt{list[int]} of length $w \times h$.
 #[/doc]
 def load_alpha(image_path: str) -> tuple[int, int, list[int]]:
     w, h, rgba = _read_png_rgba(image_path)
@@ -237,11 +398,18 @@ def load_alpha(image_path: str) -> tuple[int, int, list[int]]:
 
 #[doc]
 # \subsubsection{\texttt{threshold}}
-# Converts the alpha channel to a binary mask.  Pixels with an alpha
-# value greater or equal to \texttt{level * 255} are set to 255
-# (opaque); all others are set to 0.
 #
-# Input and output are flat \texttt{list[int]} of length w*h.
+# Converts the alpha channel to a binary mask.  Pixels with
+# $\text{alpha} \ge \text{level} \times 255$ are set to $255$
+# (opaque); all others are set to $0$.
+#
+# \textbf{Args:}
+# \begin{itemize}
+#   \item[\texttt{pixels}] --- flat alpha list of length $w \times h$
+#   \item[\texttt{w}, \texttt{h}] --- image dimensions
+#   \item[\texttt{level}] --- threshold in $[0, 1]$
+# \end{itemize}
+# \textbf{Returns:} flat \texttt{list[int]} with values $0$ or $255$.
 #[/doc]
 def threshold(
     pixels: list[int], w: int, h: int, level: float,
@@ -252,20 +420,26 @@ def threshold(
 
 #[doc]
 # \subsubsection{\texttt{dilate\_fast}}
-# Binary dilation by \texttt{N} pixels using an integral-image
-# (summed-area table) approach.  Each pixel is set to white if any
-# pixel within a \texttt{(2N+1) x (2N+1)} window in the original
-# mask is white.
+#
+# Binary dilation by $N$ pixels using an integral-image (summed-area
+# table) approach.  Each pixel is set to white if any pixel within a
+# $(2N+1) \times (2N+1)$ window in the original mask is white.
 #
 # This is ``fat'' dilation (not morphological): it is equivalent to
 # a MAX filter, which acts like dilation on a binary image.  The
-# integral image gives \texttt{O(n)} performance regardless of the
-# padding size.
+# integral image gives $O(n)$ performance regardless of $N$.
 #
-# Input and output are flat \texttt{list[int]} of length w*h, values
-# 0 or 255.  Boundary pixels use a clipped window (implicitly
-# treating out-of-bounds positions as black), so no explicit image
-# expansion is needed.
+# Boundary pixels use a clipped window (implicitly treating
+# out-of-bounds positions as black), so no explicit image expansion
+# is needed.
+#
+# \textbf{Args:}
+# \begin{itemize}
+#   \item[\texttt{pixels}] --- flat binary mask ($0$ or $255$), length $w \times h$
+#   \item[\texttt{w}, \texttt{h}] --- image dimensions
+#   \item[\texttt{padding}] --- dilation radius $N$ in pixels
+# \end{itemize}
+# \textbf{Returns:} flat \texttt{list[int]} with values $0$ or $255$.
 #[/doc]
 def dilate_fast(pixels: list[int], w: int, h: int, padding: int) -> list[int]:
     if padding <= 0:
@@ -295,35 +469,14 @@ def dilate_fast(pixels: list[int], w: int, h: int, padding: int) -> list[int]:
     return result
 
 
-#[doc]
-# \subsubsection{\texttt{smooth\_contour}}
-# Applies Gaussian smoothing to the contour point list.  Each point is
-# replaced by a weighted average of its neighbours within a
-# \texttt{2*radius+1} window.  The circular nature of the contour is
-# preserved by wrapping indices modulo the list length.
-#[/doc]
-def smooth_contour(points: list[Point], sigma: float) -> list[Point]:
-    if sigma <= 0 or len(points) < 3:
-        return points
-    radius = max(1, round(sigma * 2))
-    kernel_size = radius * 2 + 1
-    kernel = [math.exp(-((i - radius) ** 2) / (2 * sigma * sigma)) for i in range(kernel_size)]
-    ksum = sum(kernel)
-    kernel = [w / ksum for w in kernel]
-    n = len(points)
-    result = []
-    for i in range(n):
-        sx, sy = 0.0, 0.0
-        for j, kw in enumerate(kernel):
-            idx = (i + j - radius) % n
-            sx += points[idx][0] * kw
-            sy += points[idx][1] * kw
-        result.append((sx, sy))
-    return result
+# ---------------------------------------------------------------------------
+# Contour tracing
+# ---------------------------------------------------------------------------
 
 
 #[doc]
 # \subsubsection{\texttt{trace\_contour}}
+#
 # The core contour-tracing function.  It implements the Moore--Neighbor
 # boundary following algorithm:
 #
@@ -336,6 +489,15 @@ def smooth_contour(points: list[Point], sigma: float) -> list[Point]:
 #
 # The resulting contour is optionally simplified with the
 # Ramer--Douglas--Peucker algorithm.
+#
+# \textbf{Args:}
+# \begin{itemize}
+#   \item[\texttt{pixels}] --- flat binary mask ($0$ or $255$), length $w \times h$
+#   \item[\texttt{w}, \texttt{h}] --- image dimensions
+#   \item[\texttt{simplify}] --- whether to apply RDP simplification
+#   \item[\texttt{epsilon}] --- RDP tolerance in pixels (default $1.0$)
+# \end{itemize}
+# \textbf{Returns:} list of \texttt{(x, y)} contour points.
 #[/doc]
 def trace_contour(
     pixels: list[int],
@@ -348,10 +510,10 @@ def trace_contour(
     if start is None:
         return []
 
-    contour = []
+    contour: list[Point] = []
     current = start
     prev = (start[0] - 1, start[1])
-    second = None
+    second: tuple[int, int] | None = None
 
     moore = [(-1, -1), (0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0)]
 
@@ -392,8 +554,18 @@ def trace_contour(
 
 #[doc]
 # \subsubsection{\texttt{\_find\_start}}
+#
 # Scans the binary image row-by-row and returns the coordinates of the
-# first white (opaque) pixel.  Returns \texttt{None} for an empty mask.
+# first white (opaque) pixel.
+#
+# \textbf{Args:}
+# \begin{itemize}
+#   \item[\texttt{pixels}] --- flat binary mask, length $w \times h$
+#   \item[\texttt{w}, \texttt{h}] --- image dimensions
+# \end{itemize}
+# \textbf{Returns:}
+# \texttt{(x, y)} of the first opaque pixel, or \texttt{None} for
+# an empty mask.
 #[/doc]
 def _find_start(pixels: list[int], w: int, h: int) -> tuple[int, int] | None:
     for y in range(h):
@@ -403,15 +575,74 @@ def _find_start(pixels: list[int], w: int, h: int) -> tuple[int, int] | None:
     return None
 
 
+# ---------------------------------------------------------------------------
+# Post-processing
+# ---------------------------------------------------------------------------
+
+
+#[doc]
+# \subsubsection{\texttt{smooth\_contour}}
+#
+# Applies Gaussian smoothing to the contour point list.  Each point is
+# replaced by a weighted average of its neighbours within a
+# $2r + 1$ window, where $r = \max(1, \lfloor 2\sigma \rfloor)$.
+# The circular nature of the contour is preserved by wrapping indices
+# modulo the list length.
+#
+# The Gaussian kernel is $G(i) = e^{-(i - r)^2 / (2\sigma^2)}$,
+# normalised so $\sum G(i) = 1$.
+#
+# \textbf{Args:}
+# \begin{itemize}
+#   \item[\texttt{points}] --- list of $(x, y)$ contour points
+#   \item[\texttt{sigma}] --- Gaussian $\sigma$ in pixels; $\sigma \le 0$ disables smoothing
+# \end{itemize}
+# \textbf{Returns:} smoothed contour point list.
+#[/doc]
+def smooth_contour(points: list[Point], sigma: float) -> list[Point]:
+    if sigma <= 0 or len(points) < 3:
+        return points
+    radius = max(1, round(sigma * 2))
+    kernel_size = radius * 2 + 1
+    kernel = [math.exp(-((i - radius) ** 2) / (2 * sigma * sigma)) for i in range(kernel_size)]
+    ksum = sum(kernel)
+    kernel = [w / ksum for w in kernel]
+    n = len(points)
+    result: list[Point] = []
+    for i in range(n):
+        sx, sy = 0.0, 0.0
+        for j, kw in enumerate(kernel):
+            idx = (i + j - radius) % n
+            sx += points[idx][0] * kw
+            sy += points[idx][1] * kw
+        result.append((sx, sy))
+    return result
+
+
 #[doc]
 # \subsubsection{\texttt{\_simplify} (Ramer--Douglas--Peucker)}
+#
 # Reduces the number of contour points while preserving the overall
 # shape.  The algorithm recursively subdivides the polyline: if a point
-# is farther than \texttt{epsilon} from the line segment connecting the
+# is farther than $\varepsilon$ from the line segment connecting the
 # endpoints, it is kept; otherwise it is discarded.
+#
+# The perpendicular distance from point $P$ to line $AB$ is:
+# \[
+# d(P, AB) = \frac{| (B_y - A_y) P_x - (B_x - A_x) P_y + B_x A_y - B_y A_x |}
+#                 {\sqrt{(B_x - A_x)^2 + (B_y - A_y)^2}}
+# \]
+# If $A = B$, the Euclidean distance $|P - A|$ is used.
 #
 # The recursion splits the contour at the furthest point, so sharp
 # corners are retained and straight sections are simplified.
+#
+# \textbf{Args:}
+# \begin{itemize}
+#   \item[\texttt{points}] --- list of $(x, y)$ contour points
+#   \item[\texttt{epsilon}] --- distance threshold $\varepsilon$ (default $1.0$)
+# \end{itemize}
+# \textbf{Returns:} simplified contour point list.
 #[/doc]
 def _simplify(points: list[Point], epsilon: float = 1.0) -> list[Point]:
     if len(points) <= 3:
@@ -443,8 +674,14 @@ def _simplify(points: list[Point], epsilon: float = 1.0) -> list[Point]:
     return _rdp(points)
 
 
+# ---------------------------------------------------------------------------
+# Output
+# ---------------------------------------------------------------------------
+
+
 #[doc]
 # \subsubsection{\texttt{write\_svg}}
+#
 # Writes the contour as an SVG file.  The SVG contains:
 # \begin{itemize}
 #   \item The original image embedded via \texttt{<image>}.
@@ -453,6 +690,18 @@ def _simplify(points: list[Point], epsilon: float = 1.0) -> list[Point]:
 #         \texttt{wg-padding}, \texttt{wg-smooth}, \texttt{wg-invert})
 #         used by Lua to detect cache hits.
 # \end{itemize}
+#
+# \textbf{Args:}
+# \begin{itemize}
+#   \item[\texttt{points}] --- list of $(x, y)$ contour points
+#   \item[\texttt{path}] --- output SVG file path
+#   \item[\texttt{img\_path}] --- original image path (for \texttt{<image href="...">})
+#   \item[\texttt{img\_width}, \texttt{img\_height}] --- image dimensions
+#   \item[\texttt{dpi}] --- image DPI
+#   \item[\texttt{threshold}, \texttt{padding}, \texttt{smooth}, \texttt{invert}] ---
+#         parameters stored as SVG attributes
+# \end{itemize}
+# \textbf{Returns:} \texttt{None}.
 #[/doc]
 def write_svg(
     points: list[Point],
@@ -493,15 +742,23 @@ def write_svg(
         f.write("</svg>\n")
 
 
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+
 #[doc]
-# \subsubsection{CLI entry points}
-# \texttt{parse\_args} defines the command-line interface using
-# \texttt{argparse}.  The \texttt{main} function orchestrates the full
-# pipeline: load, threshold, dilate, trace, smooth, and write SVG.
+# \subsubsection{\texttt{parse\_args}}
 #
-# The \texttt{main} function is also the public Python API --- other
-# scripts can call \texttt{wrapgraphics.main(["--input", ...])} and
-# handle the integer return code.
+# Defines the CLI interface using \texttt{argparse}.
+#
+# \textbf{Args:}
+# \texttt{argv} --- argument list (defaults to \texttt{sys.argv[1:]}).
+#
+# \textbf{Returns:}
+# \texttt{argparse.Namespace} with fields: \texttt{input}, \texttt{output},
+# \texttt{threshold}, \texttt{padding}, \texttt{smooth}, \texttt{simplify},
+# \texttt{epsilon}, \texttt{invert}, \texttt{verbose}.
 #[/doc]
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Trace alpha contour of an image.")
@@ -538,6 +795,22 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+#[doc]
+# \subsubsection{\texttt{main}}
+#
+# Orchestrates the full pipeline: load, threshold, dilate, trace,
+# smooth, and write SVG.
+#
+# The function is also the public Python API: other scripts can call
+# \texttt{wrapgraphics.main(["--input", ...])} and handle the integer
+# return code (0 = success, 1 = error).
+#
+# \textbf{Args:}
+# \texttt{argv} --- argument list (passed to \texttt{parse\_args}).
+#
+# \textbf{Returns:}
+# \texttt{int} --- 0 on success, 1 on error.
+#[/doc]
 def main(argv: list[str] | None = None) -> int:
     try:
         args = parse_args(argv)
