@@ -1,0 +1,15 @@
+% !TEX program = lualatex
+% !TEX options = --shell-escape
+\documentclass{article}
+\usepackage{_example_style}
+
+\begin{document}
+
+\section*{Large padding (100px)}
+
+Extra clearance between image edge and text.
+
+\wrapgraphics[threshold=0.5, width=0.6\textwidth, padding=100, contour]{img/tree.png}
+\lipsum[1-8]
+
+\end{document}
