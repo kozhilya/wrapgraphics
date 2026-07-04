@@ -24,7 +24,7 @@ LuaLaTeX **only**. Requires `--shell-escape`.
 
 | File | Role |
 |---|---|---|
-| `wrapgraphics.py` | CLI entry point. Depends only on `Pillow` |
+| `wrapgraphics.py` | CLI entry point. No external dependencies (stdlib only) |
 | `wrapgraphics.sty` | Package: keys, \savebox, shell-escape to Python, calls Lua |
 | `wrapgraphics.lua` | Lua: SVG parsing, parshape computation, image placement |
 | `demo.tex` | Example document |

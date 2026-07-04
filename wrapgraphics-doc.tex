@@ -85,7 +85,7 @@
 \begin{abstract}
   \texttt{wrapgraphics} is a Lua\LaTeX{} package that wraps text around an
   image following the contour of its alpha channel. A Python backend
-  (Pillow) traces the contour; Lua computes \mintinline{latex}|\parshape| entries.
+  (stdlib only) traces the contour; Lua computes \mintinline{latex}|\parshape| entries.
 \end{abstract}
 
 \begin{figure*}[h]
@@ -164,7 +164,7 @@ Place \texttt{wrapgraphics.sty}, \texttt{wrapgraphics.lua}, and
 
 \begin{itemize}
   \item Lua\LaTeX{} (with \texttt{--shell-escape})
-  \item Python~3 + Pillow
+  \item Python~3 (stdlib only; no external packages needed)
 \end{itemize}
 
 \section{Package options}

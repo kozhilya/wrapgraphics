@@ -1,11 +1,11 @@
 # wrapgraphics
 
-LaTeX package that wraps text around an image based on its alpha channel contour. Uses a Python backend (Pillow) for contour tracing and LuaLaTeX for text reflow computation.
+LaTeX package that wraps text around an image based on its alpha channel contour. Uses a Python backend (stdlib only) for contour tracing and LuaLaTeX for text reflow computation.
 
 ## Requirements
 
 - LuaLaTeX (with `--shell-escape`)
-- Python 3 + Pillow
+- Python 3 (stdlib only; no external packages needed)
 
 ## Installation
 
