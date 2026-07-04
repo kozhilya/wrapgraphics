@@ -48,7 +48,8 @@
 \def\wr@verbose{false}
 \DeclareOptionX{verbose}{\def\wr@verbose{true}}
 \def\wr@contour@false{false}
-\def\wr@contour@default{false}
+\def\wr@contour@true{true}
+\def\wr@contour@default{true}
 \DeclareOptionX{contour}[red]{\def\wr@contour@default{#1}}
 \ProcessOptionsX\relax
 
@@ -63,8 +64,9 @@
 % overlaying the text of the preceding paragraph (the wrapping
 % shape only affects lines from the \texttt{\string\wrapgraphics}
 % command onward).
-% The \texttt{contour} key accepts any \textsf{xcolor} name and
-% maps \texttt{true} to red as a shortcut.
+% The \texttt{contour} key accepts \texttt{true} (contour wrapping,
+% no visual outline), \texttt{false} (rectangular wrapping), or an
+% \textsf{xcolor} name (contour wrapping with visual outline).
 %[/doc]
 \newdimen\wr@tmpdimen
 \define@key{wr}{threshold}{\def\wr@threshold{#1}}
@@ -88,9 +90,8 @@
   \edef\wr@shifty{\the\wr@tmpdimen}%
 }
 \define@key{wr}{anchor}{\def\wr@anchor{#1}}
-\define@key{wr}{contour}{%
+\define@key{wr}{contour}[true]{%
   \def\wr@contour{#1}%
-  \if\wr@contour true\def\wr@contour{red}\fi
 }
 
 %[doc]
@@ -139,13 +140,21 @@
     \fi
   }%
   \setbox\wr@imagebox=\hbox{\lower\ht\wr@imagebox\box\wr@imagebox}%
+  \wr@tmpdimen=\wd\wr@imagebox\relax
+  \edef\wr@imgwd{\the\wr@tmpdimen}%
+  \wr@tmpdimen=\dp\wr@imagebox\relax
+  \edef\wr@imght{\the\wr@tmpdimen}%
   %
   \ifx\wr@contour\wr@contour@false\else
-    \colorlet{wr@tmpcolor}{\wr@contour}%
+    \ifx\wr@contour\wr@contour@true\else
+      \colorlet{wr@tmpcolor}{\wr@contour}%
+    \fi
   \fi
   %
   \directlua{%
     tex.wr_filepath = "\luaescapestring{\wr@filepath}"
+    tex.wr_imgwd = "\wr@imgwd"
+    tex.wr_imght = "\wr@imght"
     tex.wr_threshold = "\wr@threshold"
     tex.wr_padding = "\wr@padding"
     tex.wr_smooth = "\wr@smooth"
