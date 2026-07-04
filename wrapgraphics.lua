@@ -141,11 +141,6 @@ end
 -- measure height, compute combined indent/width across all images,
 -- clear content if zero-width, return extra bskip units consumed.
 --[/doc]
-local function wr_rectangular_indent(pos, geom)
-  if pos == "right" then return 0, geom.hsize_pt - geom.img_w_pt end
-  return geom.img_w_pt, geom.hsize_pt - geom.img_w_pt
-end
-
 wr_process_line = function(line, nlines, st)
   local line_h = (line.height + line.depth) / 65536
   if line_h <= 0 then
@@ -179,14 +174,8 @@ wr_process_line = function(line, nlines, st)
   for _, img in ipairs(st.images) do
     local line_idx = img.used + nlines - 1
     if line_idx < img.total then
-      local ii
-      if img.rectangular then
-        ii = wr_rectangular_indent(img.pos, img.geom)
-      else
-        local ok
-        ok, ii = pcall(wr_indent_for_line, line_idx, img.pos, img.geom, img.contour, img.sf)
-        if not ok then ii = 0 end
-      end
+      local ok, ii = pcall(wr_indent_for_line, line_idx, img.pos, img.geom, img.contour, img.sf)
+      if not ok then ii = 0 end
       if img.pos == "right" then
         if ii < combined_right then combined_right = ii end
       else
@@ -318,14 +307,8 @@ function wr_setup_parshape()
     for _, img in ipairs(st.images) do
       local idx = img.used + line_idx
       if idx < img.total then
-        local ii
-        if img.rectangular then
-          ii = wr_rectangular_indent(img.pos, img.geom)
-        else
-          local ok
-          ok, ii = pcall(wr_indent_for_line, idx, img.pos, img.geom, img.contour, img.sf)
-          if not ok then ii = 0 end
-        end
+        local ok, ii = pcall(wr_indent_for_line, idx, img.pos, img.geom, img.contour, img.sf)
+        if not ok then ii = 0 end
         if img.pos == "right" then
           if ii < combined_right then combined_right = ii end
         else
@@ -1156,101 +1139,15 @@ local function wr_build_contour_overlay(imbox, contour, sf, position, contour_va
 end
 
 --[doc]
--- \subsubsection*{\texttt{wr\_build\_rectangular\_parshape}}
---
--- Builds a simple rectangular \texttt{\string\parshape} for use when
--- \texttt{contour=false}.  Each wrapped line gets the same indent
--- (image width for \texttt{left}, zero for \texttt{right}) and the
--- same width ($\text{hsize} - \text{indent}$).
---
--- \textbf{Input:}
--- \begin{itemize}
--- \item \texttt{skip\_count} --- number of full-width lines before
--- the wrapped block
--- \item \texttt{hsize\_pt} --- \texttt{\string\hsize} in points
--- \item \texttt{position} --- \texttt{"left"} or \texttt{"right"}
--- \item \texttt{num\_lines} --- number of wrapped lines
--- \item \texttt{img\_w\_pt} --- image width in points
--- \end{itemize}
--- \textbf{Output:} \texttt{par\_n}, \texttt{par\_lines\_flat},
--- \texttt{parshape\_str} (as in \texttt{wr\_build\_parshape})
---[/doc]
-local function wr_build_rectangular_parshape(skip_count, hsize_pt, position, num_lines, img_w_pt)
-  local par_lines_flat = {}
-  local n = 0
-  for i = 1, skip_count do
-    par_lines_flat[#par_lines_flat + 1] = 0
-    par_lines_flat[#par_lines_flat + 1] = hsize_pt
-    n = n + 1
-  end
-  for i = skip_count, num_lines - 1 do
-    local indent, width
-    if position == "right" then
-      indent = 0
-      width = hsize_pt - img_w_pt
-    else
-      indent = img_w_pt
-      width = hsize_pt - img_w_pt
-    end
-    if width < 0 then width = 0 end
-    if indent < 0 then indent = 0 end
-    par_lines_flat[#par_lines_flat + 1] = indent
-    par_lines_flat[#par_lines_flat + 1] = width
-    n = n + 1
-  end
-  par_lines_flat[#par_lines_flat + 1] = 0
-  par_lines_flat[#par_lines_flat + 1] = hsize_pt
-  n = n + 1
-  local line_parts = {}
-  for i = 1, n do
-    local idx = (i - 1) * 2 + 1
-    line_parts[#line_parts + 1] = string.format("%.1f", par_lines_flat[idx]) .. "pt " .. string.format("%.1f", par_lines_flat[idx + 1]) .. "pt"
-  end
-  local parshape_str = "\\parshape " .. n .. " " .. table.concat(line_parts, " ")
-  return n, par_lines_flat, parshape_str
-end
-
---[doc]
--- \subsubsection*{\texttt{wr\_build\_rectangular\_image\_box}}
---
--- Builds the \verb|\rlap| overlay for rectangular wrapping.
--- The image is placed flush left (or right) without contour-based
--- offset computation.
---
--- \textbf{Input:}
--- \begin{itemize}
--- \item \texttt{position} --- \texttt{"left"} or \texttt{"right"}
--- \item \texttt{geom} --- geometry table (must have \texttt{hsize\_pt},
--- \texttt{img\_w\_pt}, \texttt{shiftx\_pt}, \texttt{bskip\_pt},
--- \texttt{shifty\_pt})
--- \end{itemize}
--- \textbf{Output:} \texttt{imbox} --- the \LaTeX{} command string for
--- image placement
---[/doc]
-local function wr_build_rectangular_image_box(position, geom)
-  local hpos
-  if position == "right" then
-    hpos = "\\hskip " .. string.format("%.4f", geom.hsize_pt - geom.img_w_pt + geom.shiftx_pt) .. "pt"
-  else
-    hpos = "\\hskip " .. string.format("%.4f", geom.shiftx_pt) .. "pt"
-  end
-  local vpos = "\\smash{\\raisebox{" .. string.format("%.4f", geom.bskip_pt - geom.shifty_pt) .. "pt}{\\usebox{\\csname wr@imagebox\\endcsname}}}"
-  return "\\rlap{" .. hpos .. " " .. vpos .. "}"
-end
-
---[doc]
 -- \subsubsection{\texttt{wrapgraphics\_run}}
 --
 -- Main entry point, called once per \verb|\wrapgraphics| invocation
 -- from \verb|\directlua|. Orchestrates the full pipeline:
 -- \begin{enumerate}
 -- \item Read \TeX{} parameters and set up the verbose logger.
--- \item If \texttt{contour=false}, skip Python and build a rectangular
--- parshape from image dimensions only.
--- \item Otherwise, locate \texttt{wrapgraphics.py}
--- (\texttt{wr\_find\_pyscript}) and either validate the cached SVG or
--- run the Python backend (\texttt{wr\_svg\_matches\_params},
--- \texttt{wr\_run\_python}).
+-- \item Locate \texttt{wrapgraphics.py} (\texttt{wr\_find\_pyscript})
+-- and either validate the cached SVG or run the Python backend
+-- (\texttt{wr\_svg\_matches\_params}, \texttt{wr\_run\_python}).
 -- \item Parse the contour from the SVG (\texttt{wr\_parse\_svg}).
 -- \item Compute the pixel--point scale factor $s$
 -- (\texttt{wr\_compute\_scale}) and contour bounding box
@@ -1258,11 +1155,10 @@ end
 -- \item Build the geometry parameter table.
 -- \item Compute the number of wrapped lines and clamp to page fit.
 -- \item Build the \texttt{\string\parshape} array
--- (\texttt{wr\_build\_parshape} or \texttt{wr\_build\_rectangular\_parshape}).
+-- (\texttt{wr\_build\_parshape}).
 -- \item Build the image placement box
--- (\texttt{wr\_build\_image\_box} or \texttt{wr\_build\_rectangular\_image\_box})
--- and, if requested, the contour PDF overlay
--- (\texttt{wr\_build\_contour\_overlay}).
+-- (\texttt{wr\_build\_image\_box}) and, if requested, the
+-- contour PDF overlay (\texttt{wr\_build\_contour\_overlay}).
 -- \item Store the remaining shape state in \texttt{wr\_remaining}
 -- for page-spanning support and print the result into the
 -- \TeX{} stream.
@@ -1277,86 +1173,6 @@ function wrapgraphics_run()
   wr_verbose = tex.wr_verbose == "true"
   wr_deferred = nil
   texio.write("term and log", "[wrapgraphics] processing " .. tex.wr_filepath .. " (position=" .. tex.wr_position .. ") ")
-
-  local position = tex.wr_position
-  local anchor = tex.wr_anchor or "here"
-  local shiftx_str = tex.wr_shiftx or "0pt"
-  local shifty_str = tex.wr_shifty or "0pt"
-  local shiftx_pt = tonumber(shiftx_str:match("(-?[0-9.]+)")) or 0
-  local shifty_pt = tonumber(shifty_str:match("(-?[0-9.]+)")) or 0
-  local colsep_str = tex.wr_columnsep or "0pt"
-  local colsep_pt = tonumber(colsep_str:match("(-?[0-9.]+)")) or 0
-  local bskip_pt = tex.baselineskip.width / 65536
-  if bskip_pt <= 0 then bskip_pt = 12 end
-  local hsize_pt = tex.hsize / 65536
-
-  -- Rectangular mode (contour=false): no Python, no SVG
-  if tex.wr_contour == "false" then
-    dbg("rectangular wrapping (contour=false)")
-    local img_w_str = tex.wr_imgwd or "0pt"
-    local img_h_str = tex.wr_imght or "0pt"
-    local img_w_pt = tonumber(img_w_str:match("([0-9.]+)")) or 0
-    local img_h_pt = tonumber(img_h_str:match("([0-9.]+)")) or 0
-
-    local geom = {
-      img_w_pt  = img_w_pt,
-      img_h_pt  = img_h_pt,
-      hsize_pt  = hsize_pt,
-      column_width = hsize_pt,
-      colsep_pt = colsep_pt,
-      bskip_pt  = bskip_pt,
-      shiftx_pt = shiftx_pt,
-      shifty_pt = shifty_pt,
-    }
-
-    local effective_h = img_h_pt + shifty_pt
-    local num_lines
-    if effective_h <= 0 then num_lines = 0
-    else num_lines = math.ceil(effective_h / bskip_pt) + 2 end
-    local lines_override = tex.wr_lines
-    if lines_override ~= "" then
-      local n = tonumber(lines_override)
-      if n then
-        if n < 0 then num_lines = math.max(0, num_lines + n)
-        else num_lines = n end
-      end
-    end
-    local skip_count = tonumber(tex.wr_skip) or 0
-
-    local pagetotal_pt = tex.pagetotal / 65536
-    local vsize_pt = tex.vsize / 65536
-    local max_fit = math.max(2, math.floor((vsize_pt - pagetotal_pt - 0.5 * bskip_pt) / bskip_pt))
-    num_lines = math.max(0, math.min(num_lines, max_fit - 1))
-
-    local par_n, par_lines_flat, parshape_str = wr_build_rectangular_parshape(
-      skip_count, hsize_pt, position, num_lines, img_w_pt)
-    local imbox = wr_build_rectangular_image_box(position, geom)
-
-    local img_state = {
-      rectangular = true, contour = nil, sf = nil, geom = geom,
-      pos = position, total = par_n, used = 0,
-      img_h = img_h_pt + shifty_pt,
-    }
-
-    if wr_remaining then
-      tex.print(imbox)
-      wr_setup_parshape()
-    else
-      wr_remaining = {
-        images = { img_state }, bskip = bskip_pt,
-        parindent = tex.parindent / 65536,
-        start_page = status and status.page or 0,
-        start_pagetotal = tex.pagetotal,
-      }
-      if not post_cb_installed then
-        luatexbase.add_to_callback("post_linebreak_filter", post_linebreak_filter, "wrapgraphics")
-        post_cb_installed = true
-      end
-      tex.print("\\noindent" .. imbox .. parshape_str)
-      tex.print("\\everypar{\\directlua{wr_setup_parshape()}}")
-    end
-    return
-  end
 
   local img = tex.wr_filepath
   local out = img .. "-shape.svg"
@@ -1382,11 +1198,19 @@ function wrapgraphics_run()
     return
   end
 
+  local position = tex.wr_position
   if shape.invert and position == "left" then position = "right" end
   if position == "middle" and tex.wr_twocolumn ~= "true" then
     tex.print("\\PackageError{wrapgraphics}{The 'middle' position requires twocolumn mode}{}")
     return
   end
+  local anchor = tex.wr_anchor or "here"
+  local shiftx_str = tex.wr_shiftx or "0pt"
+  local shifty_str = tex.wr_shifty or "0pt"
+  local shiftx_pt = tonumber(shiftx_str:match("(-?[0-9.]+)")) or 0
+  local shifty_pt = tonumber(shifty_str:match("(-?[0-9.]+)")) or 0
+  local colsep_str = tex.wr_columnsep or "0pt"
+  local colsep_pt = tonumber(colsep_str:match("(-?[0-9.]+)")) or 0
 
   dbg("image=" .. img .. " " .. shape.width .. "x" .. shape.height .. " dpi=" .. shape.dpi)
   dbg("contour: " .. #shape.contour .. " points, invert=" .. tostring(shape.invert))
@@ -1409,7 +1233,10 @@ function wrapgraphics_run()
 
   local img_w_pt = shape.width * sf
   local img_h_pt = shape.height * sf
+  local hsize_pt = tex.hsize / 65536
   local first_contour_y = bounds.min_y_pt
+  local bskip_pt = tex.baselineskip.width / 65536
+  if bskip_pt <= 0 then bskip_pt = 12 end
 
   local geom = {
     img_w_pt      = img_w_pt,
@@ -1483,7 +1310,7 @@ function wrapgraphics_run()
   local imbox = wr_build_image_box(position, anchor, geom, shape.contour, sf, skip_count)
 
   local contour_val = tex.wr_contour
-  if contour_val ~= "false" and contour_val ~= "true" and contour_val ~= "" then
+  if contour_val ~= "false" and contour_val ~= "" then
     imbox = wr_build_contour_overlay(imbox, shape.contour, sf, position, contour_val, geom, skip_count)
   end
 
