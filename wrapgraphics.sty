@@ -34,9 +34,10 @@
 % \verb|contour| sets the default contour colour.
 %[/doc]
 \def\wr@threshold{0.5}
-\def\wr@padding{5}
+\def\wr@imagepadding{}
+\def\wr@padding{}
+\def\wr@fracpadding{}
 \def\wr@smooth{0}
-\def\wr@scale{1}
 \def\wr@position{left}
 \def\wr@width{}
 \def\wr@hang{false}
@@ -69,9 +70,13 @@
 %[/doc]
 \newdimen\wr@tmpdimen
 \define@key{wr}{threshold}{\def\wr@threshold{#1}}
-\define@key{wr}{padding}{\def\wr@padding{#1}}
+\define@key{wr}{image_padding}{\def\wr@imagepadding{#1}}
+\define@key{wr}{padding}{%
+  \setlength{\wr@tmpdimen}{#1}%
+  \edef\wr@padding{\the\wr@tmpdimen}%
+}
 \define@key{wr}{smooth}{\def\wr@smooth{#1}}
-\define@key{wr}{scale}{\def\wr@scale{#1}}
+\define@key{wr}{frac_padding}{\def\wr@fracpadding{#1}}
 \define@key{wr}{position}{\def\wr@position{#1}}
 \define@key{wr}{width}{%
   \setlength{\wr@tmpdimen}{#1}%
@@ -118,7 +123,7 @@
 %   \item Keys from the first argument override the defaults via
 %         \verb|\setkeys{wr}|.
 %   \item The image is saved in \verb|\wr@imagebox| with the requested
-%         \texttt{scale} or \texttt{width}.
+%         \texttt{width} (or natural size if omitted).
 %   \item The box is lowered to its own height so the reference point
 %         sits at the bottom-left corner.
 %   \item A contour colour is set up if requested.
@@ -131,13 +136,13 @@
   \let\wr@contour\wr@contour@default
   \setkeys{wr}{#1}%
   \def\wr@filepath{#2}%
+  \ifx\wr@width\empty
+    \wr@tmpdimen=.5\linewidth
+    \edef\wr@width{\the\wr@tmpdimen}%
+  \fi
   %
   \savebox{\wr@imagebox}{%
-    \ifx\wr@width\empty
-      \includegraphics[scale=\wr@scale]{\wr@filepath}%
-    \else
-      \includegraphics[width=\wr@width]{\wr@filepath}%
-    \fi
+    \includegraphics[width=\wr@width]{\wr@filepath}%
   }%
   \setbox\wr@imagebox=\hbox{\lower\ht\wr@imagebox\box\wr@imagebox}%
   %
@@ -148,9 +153,10 @@
   \directlua{%
     tex.wr_filepath = "\luaescapestring{\wr@filepath}"
     tex.wr_threshold = "\wr@threshold"
+    tex.wr_imagepadding = "\wr@imagepadding"
     tex.wr_padding = "\wr@padding"
+    tex.wr_fracpadding = "\wr@fracpadding"
     tex.wr_smooth = "\wr@smooth"
-    tex.wr_scale = "\wr@scale"
     tex.wr_position = "\wr@position"
     tex.wr_width = "\wr@width"
     tex.wr_hang = "\wr@hang"

@@ -73,6 +73,15 @@
   \end{tblr}
 }
 
+\NewDocumentCommand{\argval}{m m o}{
+  \begin{itemize}[noitemsep]
+    \item \textbf{Default value:} #1
+    \item \textbf{Accepted values:} #2
+    \IfValueT{#3}{\item #3}
+  \end{itemize}
+  \noindent
+}
+
 \title{The \texttt{wrapgraphics} package \\[0.5em]
   \large Wrap text around an image's alpha contour}
 \author{Ilya I. Kozhemyakin \\ \href{https://github.com/kozhilya/wrapgraphics}{github.com/kozhilya/wrapgraphics}}
@@ -83,9 +92,7 @@
 \maketitle
 
 \begin{abstract}
-  \texttt{wrapgraphics} is a Lua\LaTeX{} package that wraps text around an
-  image following the contour of its alpha channel. A Python backend
-  (stdlib only) traces the contour; Lua computes \mintinline{latex}|\parshape| entries.
+  \texttt{wrapgraphics} is a Lua\LaTeX{} package that wraps text around an image following the contour of its alpha channel. A Python backend (stdlib only) traces the contour; Lua computes \mintinline{latex}|\parshape| entries.
 \end{abstract}
 
 \begin{figure*}[h]
@@ -101,66 +108,40 @@
 
 \section{Introduction}
 
-\texttt{wrapgraphics} is a Lua\LaTeX{} package that wraps text around an
-image following the contour of its alpha channel.
+\texttt{wrapgraphics} is a Lua\LaTeX{} package that wraps text around an image following the contour of its alpha channel.
 
 \begin{minted}{latex}
 \usepackage{wrapgraphics}
 ...
-\wrapgraphics[threshold=0.5, padding=5, scale=0.20]{image.png}
+\wrapgraphics[threshold=0.5, width=0.5\textwidth]{image.png}
 \end{minted}
 
-The text following \texttt{\string\wrapgraphics} will flow around the image.
-The image is placed as an overlay so it sits inside the paragraph without
-breaking the text flow.
+The text following \texttt{\string\wrapgraphics} will flow around the image. The image is placed as an overlay so it sits inside the paragraph without breaking the text flow.
 
-The approach used in this package is similar to the approach in the
-\href{https://ctan.org/pkg/minted}{\texttt{minted}} package:
+The approach used in this package is similar to the approach in the \href{https://ctan.org/pkg/minted}{\texttt{minted}} package:
 
 \subsection{How it works}
 
 \begin{enumerate}
-  \item \mintinline{latex}|\wrapgraphics| saves the image in a box, then
-        calls Lua via \texttt{\string\directlua}.
-  \item Lua determines the contour SVG path and calls
-        \texttt{wrapgraphics.py} if a cached SVG
-        with matching parameters does not already exist.
-  \item Python extracts the alpha channel, applies threshold and
-        dilation (padding), traces the outer contour with the
-        Moore--Neighbor boundary following algorithm, and writes a
-        \texttt{-shape.svg} file.
-  \item Lua parses the SVG, converts pixel coordinates to
-        (\texttt{pt} / \texttt{sp}), and builds a flat list of
-        \mintinline{latex}|\parshape| entries (indent + width per line).
-  \item The \mintinline{latex}|\parshape| is injected into the TeX stream,
-        and the image is placed as an overlay (\mintinline{latex}|\rlap|)
-        so it sits inside the reflowed paragraph without consuming space.
-  \item A \texttt{post\_linebreak\_filter} callback tracks how many
-        lines have been consumed and clears the shape when the image height
-        is covered, ensuring correct behaviour across page breaks.
+  \item \mintinline{latex}|\wrapgraphics| saves the image in a box, then calls Lua via \texttt{\string\directlua}.
+  \item Lua determines the contour SVG path and calls \texttt{wrapgraphics.py} if a cached SVG with matching parameters does not already exist.
+  \item Python extracts the alpha channel, applies threshold and dilation (padding), traces the outer contour with the Moore--Neighbor boundary following algorithm, and writes a \texttt{-shape.svg} file.
+  \item Lua parses the SVG, converts pixel coordinates to (\texttt{pt} / \texttt{sp}), and builds a flat list of \mintinline{latex}|\parshape| entries (indent + width per line).
+  \item The \mintinline{latex}|\parshape| is injected into the TeX stream, and the image is placed as an overlay (\mintinline{latex}|\rlap|) so it sits inside the reflowed paragraph without consuming space.
+  \item A \texttt{post\_linebreak\_filter} callback tracks how many lines have been consumed and clears the shape when the image height is covered, ensuring correct behaviour across page breaks.
 \end{enumerate}
 
-
 \subsection{Special note about AI}
-AI agents (namely, Deepseek V4 Flash and GLM 5.2 via OpenCode) were used
-to create this package, but later its codebase and examples were manually
-checked by the author so that the package can be maintained without extra tools.
 
-The author understands that the approach of this package may be sub-optimal: the
-contour could probably be calculated with Lua, or the
-\mintinline{latex}|\parshape| could be placed with expl3 or with Lua.
+AI agents (namely, Deepseek V4 Flash and GLM 5.2 via OpenCode) were used to create this package, but later its codebase and examples were manually checked by the author so that the package can be maintained without extra tools.
 
-But while the author can maintain Python and some Lua produced by AI, he cannot
-do the same for complex Lua (such as contour calculations) and expl3 code.
-If someone else can help to produce the necessary changes to the repository, the author
-will be grateful, but until then the over-complication of the package will
-probably persist.
+The author understands that the approach of this package may be sub-optimal: the contour could probably be calculated with Lua, or the \mintinline{latex}|\parshape| could be placed with expl3 or with Lua.
+
+But while the author can maintain Python and some Lua produced by AI, he cannot do the same for complex Lua (such as contour calculations) and expl3 code. If someone else can help to produce the necessary changes to the repository, the author will be grateful, but until then the over-complication of the package will probably persist.
 
 \section{Installation}
 
-Place \texttt{wrapgraphics.sty}, \texttt{wrapgraphics.lua}, and
-\texttt{wrapgraphics.py} in the same directory as your document
-(or in \texttt{\$TEXMF/tex/latex/wrapgraphics/} for system-wide install).
+Place \texttt{wrapgraphics.sty}, \texttt{wrapgraphics.lua}, and \texttt{wrapgraphics.py} in the same directory as your document (or in \texttt{\$TEXMF/tex/latex/wrapgraphics/} for system-wide install).
 
 \begin{itemize}
   \item Lua\LaTeX{} (with \texttt{--shell-escape})
@@ -169,8 +150,7 @@ Place \texttt{wrapgraphics.sty}, \texttt{wrapgraphics.lua}, and
 
 \section{Package options}
 
-A document that uses the \texttt{wrapgraphics} package should contain a line like the
-following near the top of the document:
+A document that uses the \texttt{wrapgraphics} package should contain a line like the following near the top of the document:
 
 \begin{minted}{latex}
 \usepackage[]{wrapgraphics}
@@ -180,70 +160,142 @@ Supported options are \texttt{verbose} (\ref{package:verbose}) and \texttt{conto
 
 \subsection{\texttt{verbose}}\label{package:verbose}
 
-When enabled, additional diagnostic messages are written to the
-terminal and log file.  It is only useful for debugging or performance
-analysis.  Therefore, it should be disabled when compiling large documents.
+When enabled, additional diagnostic messages are written to the terminal and log file. It is only useful for debugging or performance analysis. Therefore, it should be disabled when compiling large documents.
 
 \subsection{\texttt{contour}}\label{package:contour}
 
-The \texttt{contour} option draws the traced contour over the
-image for debugging and visualisation purposes.
+\textbf{Default value:} \mintinline{latex}|red|
 
-This option can be enabled for each image separately.
-The default contour colour is red; other colours can be specified.
-All \texttt{xcolor} named colours and any colour defined via
-\texttt{\string\definecolor} are supported.
+The \texttt{contour} option draws the traced contour over the image for debugging and visualisation purposes.
 
-\exampletable{Contour in red (default)}{contour-red}{contour-red.pdf}[
-  The contour is drawn in red when no colour is given.]
+This option can be enabled for each image separately. The default contour colour is red; other colours can be specified. All \texttt{xcolor} named colours and any colour defined via \texttt{\string\definecolor} are supported.
 
-\exampletable{Contour in green}{contour-green}{contour-green.pdf}[
-  Green contour via \texttt{contour=green}.]
+\exampletable{Contour in red (default)}{contour-red}{contour-red.pdf}[The contour is drawn in red when no colour is given.]
 
-\exampletable{Custom purple contour}{contour-purple}{contour-purple.pdf}[
-  Purple contour via \texttt{contour=customPurple}.]
+\exampletable{Contour in green}{contour-green}{contour-green.pdf}[Green contour via \texttt{contour=green}.]
+
+\exampletable{Custom purple contour}{contour-purple}{contour-purple.pdf}[Purple contour via \texttt{contour=customPurple}.]
 
 \section{Macro options}
 
-The \mintinline{latex}|\wrapgraphics| command accepts the options listed below,
-passed as a comma-separated key--value list.
+The \mintinline{latex}|\wrapgraphics| command accepts the options listed below, passed as a comma-separated key--value list.
 
-\subsection{\texttt{position} (default: \texttt{left})}\label{macro:position}
+\smallskip\noindent
+\begin{tblr}{
+    colspec={Q Q Q X},
+    row{even}={blue9},
+    row{1-2}={blue7,c,font=\bfseries},
+    column{1-3}={c},
+    hlines,vlines
+  }
+  \SetCell[c=4]{c,font=\bfseries} Arguments of \texttt{\string\wrapgraphics}                                                                   \\
+  Argument                                                & Default value                     & Type    & Description                          \\
+  \hyperref[macro:width]{\texttt{width}}                  & \mintinline{latex}|0.5\linewidth| & length  & Image width                          \\
+  \hyperref[macro:position]{\texttt{position}}            & \texttt{left}                     & enum    & Text wrapping side                   \\
+  \hyperref[macro:padding]{\texttt{padding}}              & \texttt{2em}                      & length  & Clearance as \LaTeX{} length         \\
+  \hyperref[macro:image_padding]{\texttt{image\_padding}} & —                                 & number  & Clearance as image dimension         \\
+  \hyperref[macro:frac_padding]{\texttt{frac\_padding}}   & —                                 & number  & Clearance as fraction of image width \\
+  \hyperref[macro:threshold]{\texttt{threshold}}          & \texttt{0.5}                      & number  & Alpha threshold for contour          \\
+  \hyperref[macro:smooth]{\texttt{smooth}}                & \texttt{0}                        & number  & Gaussian smoothing sigma             \\
+  \hyperref[macro:hang]{\texttt{hang}}                    & \texttt{false}                    & boolean & Lock indent to widest contour point  \\
+  \hyperref[macro:lines]{\texttt{lines}}                  & —                                 & number  & Limit number of wrapped lines        \\
+  \hyperref[macro:skip]{\texttt{skip}}                    & \texttt{0}                        & number  & Full-width lines before wrapping     \\
+  \hyperref[macro:shift]{\texttt{shift\_x}}               & \texttt{0pt}                      & length  & Image horizontal offset              \\
+  \hyperref[macro:shift]{\texttt{shift\_y}}               & \texttt{0pt}                      & length  & Image vertical offset                \\
+  % \hyperref[macro:anchor]{\texttt{anchor}}                & \texttt{here}                     & enum    & Image anchor point                   \\
+\end{tblr}
+\medskip
 
-Which side of the image the text wraps around.  Accepted values are
-\texttt{left} and \texttt{right}.
+Exact values of each argument explained in related section.
 
-\exampletable{Position \texttt{left} (default)}{basic}{basic.pdf}[
-  Text wraps around the left side of the image.]
+\exampletable{Basic usage}{basic}{basic.pdf}[Text wraps around the left side of the image.]
 
-\exampletable{Position \texttt{right}}{right}{right.pdf}[
-  Text wraps around the right side of the image.]
+\clearpage
 
-There is also value \texttt{middle} that can't be used in regular environment,
-only in two-column environments (see~\ref{usecase:twocolumn}). See sections~
-\ref{usecase:twocolumn} and~\ref{problem:position-middle} for additional
+\subsection{\texttt{width}}\label{macro:width}
+
+\argval{
+  \mintinline{latex}|0.5\linewidth|
+}{
+  any \LaTeX\ length
+}
+
+Explicit width passed to \mintinline{latex}|\includegraphics|, e.g.~\texttt{width=8cm}.
+
+\exampletable{Width 8\,cm}{width}{width.pdf}[Image width set to 8\,cm.]
+
+The value of \texttt{width} is also used to calculate clearance size if \texttt{padding} is used as main clearance argument (if none of \texttt{*padding} arguments are set, or if \texttt{padding} is explicitly used). But since in this case \texttt{frac\_padding} is calculated in macro, the \texttt{width} does not supplied to Python script.
+
+\subsection{\texttt{position}}\label{macro:position}
+
+\argval{
+  \texttt{left}
+}{
+  \texttt{left}, \texttt{right}, \texttt{middle}
+}
+
+Which side of the image the text wraps around. Generally accepted values are \texttt{left} (default) and \texttt{right}.
+
+\exampletable{Position \texttt{right}}{right}{right.pdf}[Text wraps around the right side of the image.]
+
+There is also value \texttt{middle} that can't be used in regular environment, only in two-column environments. See sections~\ref{usecase:twocolumn} for two-column example and~\ref{problem:position-middle} for additional
 information.
 
-\subsection{\texttt{padding} (default: \texttt{5})}\label{macro:padding}
+Note that \texttt{anchor} will setup \texttt{position} automatically, but it can be overridden by explicit \texttt{position}-value. Or, at least, it suppose to do it, but \texttt{anchor} is not working currently (see section~\ref{problem:anchor}).
 
-Extra clearance in pixels between the image edge and the wrapped text.
-It is implemented by dilating the alpha mask before contour tracing.
+\clearpage
 
-Note that the value of this option is in pixels of the image.  Because of
-it, the same value will produce different results for small and large images.
+\subsection{\texttt{padding}}\label{macro:padding}
 
-\exampletable{Padding 0\,px}{padding-00}{padding-00.pdf}[
-  No padding: text follows the exact alpha contour.]
+\argval{
+  \mintinline{latex}|2em|
+}{
+  any \LaTeX\ length
+}[
+  \textbf{Overrides:} \texttt{image\_padding}, \texttt{frac\_padding}
+]
 
-\exampletable{Padding 20\,px}{padding-20}{padding-20.pdf}[
-  Small large padding pushes text near to the image.]
+A \LaTeX{} length (e.g.\ \texttt{padding=20pt}, \texttt{padding=2cm}) that specifies the clearance in page-space units. In this package this argument is used as main method to setup a clearance size, because it is easier to create consistent clearances across all images in document.
 
-\exampletable{Padding 100\,px}{padding-100}{padding-100.pdf}[
-  Very large padding pushes text far from the image.]
+\exampletable{Padding as \LaTeX{} length}{padding}{padding.pdf}[\texttt{padding=1cm}]
 
-Here is a comparison of different \texttt{padding} values.
-Notice that small values barely push the text away from the
-image, while large values create a wide clearance zone.
+It worth noting, that despite \texttt{padding} been used as main clearance size argument, the value of this argument does not supplied to Python file directly, instead the macro calculates implicit value for \texttt{frac\_padding} as:
+\[
+  \texttt{frac\_padding} = \frac{\texttt{padding}}{\texttt{width}}.
+\]
+
+\subsection{\texttt{frac\_padding}}\label{macro:frac_padding}
+
+\argval{
+  ---
+}{
+  decimal number
+}[
+  \textbf{Overriden by:} \texttt{padding}
+]
+
+A clearance size as fraction of the rendered image width, specified as a decimal number.
+
+\exampletable{frac\_padding=0.1}{frac-padding}{frac-padding.pdf}[Padding set to 10\,\% of the rendered image width. Since the example image is 929\,px wide, the resulting \texttt{image\_padding} is $0.1 \times 929 = 92.9$\,px.]
+
+This argument is supplied to Python when \texttt{padding} argument is provided to the macro. It then is converted to \texttt{image\_padding} in Python script as
+\[
+  \texttt{image\_padding} = \texttt{frac\_padding} \times w_{\text{px}},
+\]
+where $ w_{\text{px}} $ is the width of the image in pixels.
+
+
+
+
+\subsection{\texttt{image\_padding}}\label{macro:image_padding}
+
+A secondary way to specify the clearance, used only when \texttt{padding}
+is not set.  It is specified as an absolute pixel value.
+
+\exampletable{image\_padding=40}{padding-demo}{padding-demo.pdf}[Absolute 40\,px clearance from the image edge, no contour overlay.]
+
+Here is a comparison of different \texttt{image\_padding} values for the
+absolute-pixel case ($>1$):
 
 \noindent
 \begin{tblr}{
@@ -251,23 +303,24 @@ image, while large values create a wide clearance zone.
     hlines, vlines,
     row{1,3}={blue9}
   }
-  \texttt{padding=0}                                           &
-  \texttt{padding=2}                                           &
-  \texttt{padding=5}                                           &
-  \texttt{padding=10}                                            \\
-  \includegraphics[width=\linewidth]{example/padding-00.pdf}   &
-  \includegraphics[width=\linewidth]{example/padding-02.pdf}   &
-  \includegraphics[width=\linewidth]{example/padding-05.pdf}   &
-  \includegraphics[width=\linewidth]{example/padding-10.pdf}     \\
-  \texttt{padding=20}                                          &
-  \texttt{padding=40}                                          &
-  \texttt{padding=60}                                          &
-  \texttt{padding=100}                                           \\
-  \includegraphics[width=\linewidth]{example/padding-20.pdf}   &
-  \includegraphics[width=\linewidth]{example/padding-40.pdf}   &
-  \includegraphics[width=\linewidth]{example/padding-60.pdf}   &
+  \texttt{image\_padding=0}                                  &
+  \texttt{image\_padding=2}                                  &
+  \texttt{image\_padding=5}                                  &
+  \texttt{image\_padding=10}                                   \\
+  \includegraphics[width=\linewidth]{example/padding-00.pdf} &
+  \includegraphics[width=\linewidth]{example/padding-02.pdf} &
+  \includegraphics[width=\linewidth]{example/padding-05.pdf} &
+  \includegraphics[width=\linewidth]{example/padding-10.pdf}   \\
+  \texttt{image\_padding=20}                                 &
+  \texttt{image\_padding=40}                                 &
+  \texttt{image\_padding=60}                                 &
+  \texttt{image\_padding=100}                                  \\
+  \includegraphics[width=\linewidth]{example/padding-20.pdf} &
+  \includegraphics[width=\linewidth]{example/padding-40.pdf} &
+  \includegraphics[width=\linewidth]{example/padding-60.pdf} &
   \includegraphics[width=\linewidth]{example/padding-100.pdf}
 \end{tblr}
+
 
 \subsection{\texttt{threshold} (default: \texttt{0.5})}\label{macro:threshold}
 
@@ -293,18 +346,18 @@ remains visible in the contour, and fine details are lost.
     hlines, vlines,
     row{1,3}={blue9}
   }
-  \texttt{threshold=0.05}                                      &
-  \texttt{threshold=0.1}                                       &
-  \texttt{threshold=0.25}                                      &
-  \texttt{threshold=0.5}                                         \\
+  \texttt{threshold=0.05}                                        &
+  \texttt{threshold=0.1}                                         &
+  \texttt{threshold=0.25}                                        &
+  \texttt{threshold=0.5}                                           \\
   \includegraphics[width=\linewidth]{example/threshold-0.05.pdf} &
   \includegraphics[width=\linewidth]{example/threshold-0.1.pdf}  &
   \includegraphics[width=\linewidth]{example/threshold-0.25.pdf} &
-  \includegraphics[width=\linewidth]{example/threshold-0.5.pdf}   \\
-  \texttt{threshold=0.75}                                      &
-  \texttt{threshold=0.9}                                       &
-  \texttt{threshold=0.95}                                      &
-  \texttt{threshold=0.99}                                        \\
+  \includegraphics[width=\linewidth]{example/threshold-0.5.pdf}    \\
+  \texttt{threshold=0.75}                                        &
+  \texttt{threshold=0.9}                                         &
+  \texttt{threshold=0.95}                                        &
+  \texttt{threshold=0.99}                                          \\
   \includegraphics[width=\linewidth]{example/threshold-0.75.pdf} &
   \includegraphics[width=\linewidth]{example/threshold-0.9.pdf}  &
   \includegraphics[width=\linewidth]{example/threshold-0.95.pdf} &
@@ -352,23 +405,6 @@ such as the trunk of the tree.
 \end{tblr}
 
 
-
-\subsection{\texttt{scale} (default: \texttt{1})}\label{macro:scale}
-
-Scale factor passed to \mintinline{latex}|\includegraphics|.  Overridden
-by \texttt{width} if both are specified.
-
-\exampletable{Scale 0.32}{basic}{basic.pdf}[
-  Image scaled to 32\,\% of its natural size.]
-
-
-\subsection{\texttt{width}}\label{macro:width}
-
-Explicit width passed to \mintinline{latex}|\includegraphics|,
-e.g.\ \texttt{width=8cm}.  Overrides \texttt{scale}.
-
-\exampletable{Width 8\,cm}{width}{width.pdf}[
-  Image width set to 8\,cm.]
 
 
 \subsection{\texttt{hang} (default: \texttt{false})}\label{macro:hang}
@@ -522,7 +558,7 @@ decided that it would be too unstable to combine these two packages.
 % \exampletable{Middle position}{middle}{middle.pdf}[
 %   Text wraps around the right side of the image.]
 
-\subsection{\texttt{anchor} (default: \texttt{here})}\label{macro:anchor}
+\subsection{\texttt{anchor} (default: \texttt{here})}\label{macro:anchor}\label{problem:anchor}
 
 Where to anchor the image.  The value \texttt{here} (default) places it
 inline at the paragraph start.  The compass-point values

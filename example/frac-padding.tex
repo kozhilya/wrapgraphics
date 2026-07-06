@@ -1,0 +1,15 @@
+% !TEX program = lualatex
+% !TEX options = --shell-escape
+\documentclass{article}
+\usepackage{_example_style}
+
+\begin{document}
+
+\section*{Padding via fraction}
+
+\texttt{frac\_padding=0.1} (10\,\% of rendered image width).
+
+\wrapgraphics[frac_padding=0.1, contour]{img/tree.png}
+\lipsum[1-8]
+
+\end{document}

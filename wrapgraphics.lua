@@ -380,6 +380,55 @@ local function wr_find_pyscript(img)
 end
 
 --[doc]
+-- \subsubsection*{\texttt{wr\_read\_png\_meta}}
+--
+-- Reads image dimensions and DPI from a PNG file by parsing the IHDR
+-- and pHYs chunks.  No external libraries are needed --- raw byte
+-- matching with Lua's built-in functions.
+--
+-- \textbf{Input:}
+-- \begin{itemize}
+-- \item \texttt{path} --- path to the PNG file
+-- \end{itemize}
+-- \textbf{Output:} \texttt{width}, \texttt{height}, \texttt{dpi}
+-- (three numbers), or \texttt{nil} on error
+--[/doc]
+local function wr_read_png_meta(path)
+  local f = io.open(path, "rb")
+  if not f then return nil end
+  local sig = f:read(8)
+  if sig ~= "\137PNG\r\n\26\n" then f:close(); return nil end
+  -- IHDR chunk
+  local len = string.unpack(">I4", f:read(4))
+  local typ = f:read(4)
+  if typ ~= "IHDR" then f:close(); return nil end
+  local w, h = string.unpack(">I4 I4", f:read(8))
+  f:read(len - 8 + 4)  -- remaining IHDR data + CRC
+  -- Scan for pHYs
+  local dpi = 72.0
+  while true do
+    local clen_data = f:read(4)
+    if not clen_data then break end
+    len = string.unpack(">I4", clen_data)
+    typ = f:read(4)
+    if not typ then break end
+    if typ == "IEND" then break end
+    if typ == "pHYs" then
+      local data = f:read(9)
+      if data and #data == 9 then
+        local ppu_x, ppu_y, unit = string.unpack(">I4 I4 I1", data)
+        if unit == 1 then dpi = ppu_x * 0.0254 end
+      end
+      f:read(4)  -- CRC
+      break
+    end
+    f:read(len + 4)  -- skip chunk data + CRC
+  end
+  f:close()
+  return w, h, dpi
+end
+
+--[doc]
 -- \subsubsection*{\texttt{wr\_svg\_matches\_params}}
 --
 -- Checks whether a cached \texttt{-shape.svg} file exists with metadata
@@ -427,12 +476,21 @@ end
 -- \end{itemize}
 -- \textbf{Output:} none (writes \texttt{-shape.svg} as a side effect)
 --[/doc]
-local function wr_run_python(pyscript, img, out, thr, pad, smo)
-  texio.write("term and log", "[wrapgraphics] running python3 (padding=" .. pad .. ", smooth=" .. smo .. ")... ")
+local function wr_run_python(pyscript, img, out, thr, arg_type, arg_val, smo)
+  local arg_tag, arg_fmt
+  if arg_type == "frac" then
+    arg_tag = "frac"
+    arg_fmt = string.format("%.12f", arg_val)
+  else
+    arg_tag = "image"
+    arg_fmt = string.format("%.6f", arg_val)
+  end
+  texio.write("term and log", "[wrapgraphics] running python3 (" .. arg_tag .. "_padding=" .. arg_fmt .. ", smooth=" .. smo .. ")...\n")
+  local arg_str = " --" .. arg_tag .. "-padding " .. arg_fmt
   os.execute("python3 " .. pyscript .. " --input " .. img
            .. " --output " .. out
            .. " --threshold " .. thr
-           .. " --padding " .. pad
+           .. arg_str
            .. " --smooth " .. smo)
 end
 
@@ -490,41 +548,6 @@ local function wr_parse_svg(path)
 end
 
 --[doc]
--- \subsubsection*{\texttt{wr\_compute\_scale}}
---
--- Computes the scale factor $s$ that converts image pixels to points.
--- Two modes:
--- \begin{itemize}
--- \item \texttt{scale} given: $s = s_u \cdot 72.27 / d$ where $s_u$
--- is the user-provided scale factor and $d$ is the image DPI
--- (the constant $72.27$ is the number of points per inch).
--- \item \texttt{width} given: $s = w_{\text{pt}} / w$ where
--- $w_{\text{pt}}$ is the explicit width in points and $w$ is
--- the image width in pixels.
--- \end{itemize}
--- 
--- \textbf{Input:}
--- \begin{itemize}
--- \item \texttt{scale\_str} --- user scale (string, may be empty)
--- \item \texttt{width\_str} --- user width (string, may be empty)
--- \item \texttt{shape} --- parsed SVG table (must have \texttt{.dpi}
--- and \texttt{.width} fields)
--- \end{itemize}
--- \textbf{Output:} scale factor $s$ (number)
---[/doc]
-local function wr_compute_scale(scale_str, width_str, shape)
-  local scale = tonumber(scale_str)
-  if width_str ~= "" then
-    scale = nil
-  end
-  if scale then
-    return scale * 72.27 / shape.dpi
-  else
-    local explicit_width_pt = tonumber(width_str:match("([0-9.]+)"))
-    return explicit_width_pt / shape.width
-  end
-end
-
 --[doc]
 -- \subsubsection*{\texttt{wr\_contour\_bounds}}
 --
@@ -1177,8 +1200,69 @@ function wrapgraphics_run()
   local img = tex.wr_filepath
   local out = img .. "-shape.svg"
   local thr = tex.wr_threshold
-  local pad = tex.wr_padding
   local smo = tex.wr_smooth
+
+  -- Read PNG header for image dimensions and DPI (avoids running Python
+  -- just to get metadata).  This gives us img_w_px, img_h_px, img_dpi.
+  local img_w_px, img_h_px, img_dpi = wr_read_png_meta(img)
+  if not img_w_px then
+    tex.print("\\PackageError{wrapgraphics}{Cannot read PNG metadata from " .. img .. "}{}")
+    return
+  end
+  dbg("png: " .. img_w_px .. "x" .. img_h_px .. " dpi=" .. string.format("%.1f", img_dpi))
+
+  -- Compute scale factor from user width + PNG metadata (no SVG needed)
+  local sf
+  if tex.wr_width ~= "" then
+    local w_pt = tonumber(tex.wr_width:match("([0-9.]+)"))
+    sf = w_pt / img_w_px
+  else
+    sf = 1  -- natural size: 1 pixel = 1 pt
+  end
+  dbg("sf=" .. string.format("%.6f", sf))
+
+  local img_w_pt = img_w_px * sf
+  local img_h_pt = img_h_px * sf
+
+  -- Compute padding argument for Python.
+  --   padding (LaTeX length) -> frac = pt / img_w_pt  -> --frac-padding
+  --   image_padding (number)  -> absolute px value    -> --image-padding
+  --   frac_padding (fraction) -> value passed as-is   -> --frac-padding
+  --   default: 2em           -> frac = 2em / img_w_pt -> --frac-padding
+  local pad_arg_type  -- "frac" or "image"
+  local pad_arg_val   -- number
+  local image_pad_str = tex.wr_imagepadding
+  local pad_len_str   = tex.wr_padding
+  local frac_pad_str  = tex.wr_fracpadding
+  if pad_len_str ~= "" then
+    -- padding (LaTeX length) takes priority
+    if image_pad_str ~= "" then
+      texio.write("term and log", "[wrapgraphics] warning: both image_padding and padding given; using padding\n")
+    end
+    local pad_pt = tonumber(pad_len_str:match("(-?[0-9.]+)")) or 0
+    pad_arg_type = "frac"
+    pad_arg_val = pad_pt / img_w_pt
+  elseif image_pad_str ~= "" then
+    pad_arg_type = "image"
+    pad_arg_val = tonumber(image_pad_str) or 0
+  elseif frac_pad_str ~= "" then
+    pad_arg_type = "frac"
+    pad_arg_val = tonumber(frac_pad_str) or 0
+  else
+    -- default: 2em
+    local default_pad_pt = tex.sp("2em") / 65536
+    pad_arg_type = "frac"
+    pad_arg_val = default_pad_pt / img_w_pt
+  end
+
+  -- Compute absolute pixel padding for SVG cache matching
+  local px_padding
+  if pad_arg_type == "frac" then
+    px_padding = math.max(0, math.floor(pad_arg_val * img_w_px + 0.5))
+  else
+    px_padding = math.max(0, math.floor(pad_arg_val))
+  end
+  local pad_str = tostring(px_padding)
 
   local pyscript = wr_find_pyscript(img)
   if not pyscript then
@@ -1186,10 +1270,10 @@ function wrapgraphics_run()
     return
   end
 
-  if wr_svg_matches_params(out, thr, pad, smo) then
+  if wr_svg_matches_params(out, thr, pad_str, smo) then
     dbg("cached SVG matches params, skipping Python")
   else
-    wr_run_python(pyscript, img, out, thr, pad, smo)
+    wr_run_python(pyscript, img, out, thr, pad_arg_type, pad_arg_val, smo)
   end
 
   local ok, shape = pcall(wr_parse_svg, out)
@@ -1208,13 +1292,13 @@ function wrapgraphics_run()
   local shiftx_str = tex.wr_shiftx or "0pt"
   local shifty_str = tex.wr_shifty or "0pt"
   local shiftx_pt = tonumber(shiftx_str:match("(-?[0-9.]+)")) or 0
-  local shifty_pt = tonumber(shifty_str:match("(-?[0-9.]+)")) or 0
+  local shifty_pt = tonumber(shifty_str:match("(-?[0.9.]+)")) or 0
   local colsep_str = tex.wr_columnsep or "0pt"
   local colsep_pt = tonumber(colsep_str:match("(-?[0-9.]+)")) or 0
 
   dbg("image=" .. img .. " " .. shape.width .. "x" .. shape.height .. " dpi=" .. shape.dpi)
   dbg("contour: " .. #shape.contour .. " points, invert=" .. tostring(shape.invert))
-  dbg("params: threshold=" .. thr .. " padding=" .. pad .. " smooth=" .. smo .. " scale=" .. tex.wr_scale .. " position=" .. position)
+  dbg("params: threshold=" .. thr .. " padding=" .. pad_str .. " smooth=" .. smo .. " sf=" .. string.format("%.6f", sf) .. " position=" .. position)
 
   if next(shape.contour) == nil then
     dbg("empty contour -- no wrapping")
@@ -1226,13 +1310,11 @@ function wrapgraphics_run()
     return
   end
 
-  local sf = wr_compute_scale(tex.wr_scale, tex.wr_width, shape)
-  dbg("scale=" .. (tonumber(tex.wr_scale) or "nil") .. " sf=" .. string.format("%.6f", sf))
-
+  -- Use PNG dimensions (more reliable than SVG, which could be stale)
   local bounds = wr_contour_bounds(shape.contour, sf)
 
-  local img_w_pt = shape.width * sf
-  local img_h_pt = shape.height * sf
+  local img_w_pt = img_w_px * sf
+  local img_h_pt = img_h_px * sf
   local hsize_pt = tex.hsize / 65536
   local first_contour_y = bounds.min_y_pt
   local bskip_pt = tex.baselineskip.width / 65536

@@ -1,0 +1,15 @@
+% !TEX program = lualatex
+% !TEX options = --shell-escape
+\documentclass{article}
+\usepackage{_example_style}
+
+\begin{document}
+
+\section*{padding\_demo without contour}
+
+Image clearance with \texttt{image\_padding=100}.
+
+\wrapgraphics[image_padding=100, contour]{img/tree.png}
+\lipsum[1-8]
+
+\end{document}

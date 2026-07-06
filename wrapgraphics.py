@@ -821,7 +821,8 @@ def write_svg(
 # \end{itemize}
 # \paragraph{Returns:} \mintinline{python}|argparse.Namespace| ---
 # with fields \texttt{input}, \texttt{output}, \texttt{threshold},
-# \texttt{padding}, \texttt{smooth}, \texttt{simplify},
+# \texttt{image\_padding}, \texttt{frac\_padding}, \texttt{smooth},
+# \texttt{simplify},
 # \texttt{epsilon}, \texttt{invert}, \texttt{verbose}.
 #[/doc]
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -833,8 +834,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Alpha threshold (0-1); values >= threshold are opaque",
     )
     parser.add_argument(
-        "--padding", "-p", type=int, default=5,
-        help="Contour offset in pixels (clearance from image edge)",
+        "--image-padding", type=float, default=None,
+        help="Absolute padding in pixels (clearance from image edge)",
+    )
+    parser.add_argument(
+        "--frac-padding", type=float, default=None,
+        help="Padding as fraction of image width",
     )
     parser.add_argument(
         "--smooth", type=float, default=0.0,
@@ -900,6 +905,15 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     vprint(f"image: {w}x{h}, dpi={dpi:.1f}")
 
+    if args.frac_padding is not None:
+        args.padding = int(args.frac_padding * w)
+        vprint(f"frac_padding={args.frac_padding} -> padding={args.padding} px")
+    elif args.image_padding is not None:
+        args.padding = int(args.image_padding)
+        vprint(f"image_padding={args.image_padding} -> padding={args.padding} px")
+    else:
+        args.padding = 0
+
     try:
         _, _, alpha = load_alpha(args.input)
     except ValueError as e:
@@ -910,11 +924,31 @@ def main(argv: list[str] | None = None) -> int:
     mask = threshold(alpha, w, h, args.threshold)
     vprint(f"threshold={args.threshold} applied")
 
-    mask = dilate_fast(mask, w, h, args.padding)
-    vprint(f"dilated by {args.padding} px (integral-image)")
+    # Expand mask by padding on each side so edge pixels dilate correctly
+    # and the contour can extend beyond the original image bounds.
+    if args.padding > 0:
+        ew, eh = w + 2 * args.padding, h + 2 * args.padding
+        expanded = [0] * (ew * eh)
+        for y in range(h):
+            src = y * w
+            dst = (y + args.padding) * ew + args.padding
+            for x in range(w):
+                expanded[dst + x] = mask[src + x]
+        mask = dilate_fast(expanded, ew, eh, args.padding)
+        trace_w, trace_h, px_off = ew, eh, args.padding
+    else:
+        mask = dilate_fast(mask, w, h, args.padding)
+        trace_w, trace_h, px_off = w, h, 0
+    vprint(f"dilated by {args.padding} px (integral-image, expanded to {trace_w}x{trace_h})")
 
-    contour = trace_contour(mask, w, h, simplify=args.simplify, epsilon=args.epsilon)
+    contour = trace_contour(mask, trace_w, trace_h, simplify=args.simplify, epsilon=args.epsilon)
     vprint(f"contour traced: {len(contour)} points (simplify={args.simplify}, epsilon={args.epsilon})")
+
+    # Shift contour back to original-image coordinates so the SVG image
+    # dimensions remain unchanged.  Negative or >w/h coordinates are
+    # valid for the SVG path and correctly handled by the Lua side.
+    if px_off > 0:
+        contour = [(x - px_off, y - px_off) for x, y in contour]
 
     if args.smooth > 0:
         contour = smooth_contour(contour, args.smooth)

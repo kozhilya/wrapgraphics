@@ -55,6 +55,9 @@ make doc
 
 ## Known issues / next steps
 
+- **Finish documentation** — `wrapgraphics-doc.tex` needs to be completed: all `\argval` entries, consistent descriptions, cross-references.
+- **Remove `image_padding ≤ 1`** — the fractional case duplicates `frac_padding`; keep only `image_padding > 1` (absolute px).
+- **`padding` example broken** — `padding=5cm` with default `width=0.5\linewidth` creates padding that exceeds the page width, leaving no text. Fix the example value.
 - **twocolumn-middle** — needs re-verification after the `wr_deferred.lines_since_start` fix (it was not tested, only `twocolumn-wide` was verified).
 - **Arbitrary vertical anomalies** — the current obstacle handling (`\subsection*`, `\item`, formulas) works via `\AddToHook{para/begin}`, but other LaTeX constructs that reset `\everypar` or break the parshape assumption may still fail. A dedicated example demonstrating generic vertical anomaly support is needed.
 

@@ -1,0 +1,13 @@
+% !TEX program = lualatex
+% !TEX options = --shell-escape
+\documentclass{article}
+\usepackage{_example_style}
+
+\begin{document}
+
+\section*{image\_padding=0.0}
+
+\wrapgraphics[threshold=0.5, width=0.6\textwidth, image_padding=0.0, contour]{img/tree.png}
+\lipsum[1-8]
+
+\end{document}
